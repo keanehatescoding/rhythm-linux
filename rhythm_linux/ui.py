@@ -68,9 +68,17 @@ def _row(text: str, sublabel: str | None = None) -> Gtk.ListBoxRow:
     return row
 
 
+_phone_released = threading.Event()  # set when the app is closing
+_phone_thread: threading.Thread | None = None  # the worker that may be mounting right now
+
+
 def release_phone() -> None:
     """Unmount the read-only iPhone view if it is mounted. Never raises."""
+    _phone_released.set()
     try:
+        # Let an in-flight mount finish first, so it cannot outlive the app.
+        if _phone_thread is not None and _phone_thread.is_alive():
+            _phone_thread.join(timeout=20)
         iphone.unmount(iphone.default_mountpoint())
     except Exception:  # a stuck or missing phone must not block quitting
         pass
@@ -362,7 +370,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._iphone_generation = getattr(self, "_iphone_generation", 0) + 1
         generation = self._iphone_generation
         self.status.set_label("Reading iPhone…")
-        threading.Thread(target=self._iphone_worker, args=(generation,), daemon=True).start()
+        global _phone_thread
+        _phone_thread = threading.Thread(target=self._iphone_worker, args=(generation,), daemon=True)
+        _phone_thread.start()
 
     def _iphone_worker(self, generation: int) -> None:
         # Off the main thread: talks to the phone and reads file names only.
@@ -373,6 +383,9 @@ class MainWindow(Gtk.ApplicationWindow):
             else:
                 mountpoint = iphone.default_mountpoint()
                 iphone.mount_readonly(mountpoint)
+                if _phone_released.is_set():  # the app closed while we were mounting
+                    release_phone()
+                    return
                 files = iphone.list_audio_files(mountpoint)
                 result = ("ok", (device.name, mountpoint, files))
         except Exception as exc:  # the phone tools fail in many ways; show the message
@@ -694,7 +707,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_track_activated(self, _listbox, row) -> None:
         if hasattr(row, "iphone_file"):
-            return  # the iPhone view is a read-only list; playing from it is not built yet
+            # Play from the read-only mount. Reads only; the mount lasts while the window is open.
+            files = [r.iphone_file for r in _listbox_rows(self.track_list) if hasattr(r, "iphone_file")]
+            tracks = [read_track(p) for p in files]
+            start = tracks[files.index(row.iphone_file)]
+            self.queue.set_tracks(tracks, start=start)
+            self._play_track(self.queue.current())
+            return
         if getattr(row, "queue_offset", None) is not None:
             self._play_track(self.queue.jump(row.queue_offset))  # keep the queue, move within it
             return

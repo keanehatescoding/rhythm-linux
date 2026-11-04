@@ -11,14 +11,15 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gio, GLib, Gtk, Pango  # noqa: E402
 
-from .library import (AUDIO_EXTENSIONS, SORT_KEYS, Track, merge_tracks, read_cover,  # noqa: E402
-                      read_track, scan_folder, sort_tracks)
+from .library import (AUDIO_EXTENSIONS, SORT_KEYS, Track, group_tracks, merge_tracks,  # noqa: E402
+                      read_cover, read_track, scan_folder, sort_tracks)
 from .player import Player  # noqa: E402
 from .playlists import PlaylistStore  # noqa: E402
 from .queue import REPEAT_ALL, REPEAT_OFF, REPEAT_ONE, PlaybackQueue  # noqa: E402
 from .settings import Settings  # noqa: E402
 
 LIBRARY_LABEL = "Library"
+BROWSE_VIEWS = (("Albums", "album"), ("Artists", "artist"))  # sidebar entries under Library
 PLAY_ICON = "media-playback-start-symbolic"
 PAUSE_ICON = "media-playback-pause-symbolic"
 
@@ -78,6 +79,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pending_select: int | None = None
         self.queue = PlaybackQueue()   # order of the view that was last played from
         self.current_playlist: str | None = None
+        self.browse_by: str | None = None  # "album" or "artist" when browsing groups
         self.player = Player(on_end_of_stream=self._play_next)
 
         header = Gtk.HeaderBar()
@@ -265,7 +267,21 @@ class MainWindow(Gtk.ApplicationWindow):
         self._populate_generation += 1
         self.track_list.remove_all()
         self.delete_playlist_btn.set_sensitive(self.current_playlist is not None)
+        if self.browse_by is not None:
+            self._append_group_rows()
+            return
         self._append_rows(self._populate_generation, self._view_tracks(), 0)
+
+    def _append_group_rows(self) -> None:
+        """One row per album or artist. Activating a row plays every track in it."""
+        for name, tracks in group_tracks(self.tracks, self.browse_by):
+            count = f"{len(tracks)} track" + ("" if len(tracks) == 1 else "s")
+            row = _row(name, count)
+            row.group_name = name
+            row.group = tracks
+            self.track_list.append(row)
+        self.track_list.invalidate_filter()
+        self._update_playlist_controls()
 
     def _update_playlist_controls(self) -> None:
         row = self.track_list.get_selected_row()
@@ -316,12 +332,20 @@ class MainWindow(Gtk.ApplicationWindow):
         self.sidebar.remove_all()
         library_row = _row(LIBRARY_LABEL)
         library_row.playlist_name = None
+        library_row.browse_by = None
         self.sidebar.append(library_row)
+        for label, browse in BROWSE_VIEWS:
+            row = _row(label)
+            row.playlist_name = None
+            row.browse_by = browse
+            self.sidebar.append(row)
         for name in names:
             row = _row(name)
             row.playlist_name = name
+            row.browse_by = None
             self.sidebar.append(row)
-        self.sidebar.select_row(self._sidebar_row_for(self.current_playlist) or library_row)
+        selected = self._sidebar_row_for(self.current_playlist, self.browse_by)
+        self.sidebar.select_row(selected or library_row)
 
         model = self.target_dropdown.get_model()
         model.splice(0, model.get_n_items(), names)
@@ -329,25 +353,32 @@ class MainWindow(Gtk.ApplicationWindow):
             self.target_dropdown.set_selected(0)
         self.add_to_btn.set_sensitive(bool(names))
 
-    def _sidebar_row_for(self, name: str | None):
+    def _sidebar_row_for(self, name: str | None, browse: str | None = None):
         for row in _listbox_rows(self.sidebar):
-            if getattr(row, "playlist_name", None) == name:
+            if (getattr(row, "playlist_name", None) == name
+                    and getattr(row, "browse_by", None) == browse):
                 return row
         return None
 
-    def _matches_search(self, track: Track) -> bool:
+    def _query_matches(self, text: str) -> bool:
         query = self.search.get_text().strip().lower()
-        return not query or query in track.search_text
+        return not query or query in text
+
+    def _matches_search(self, track: Track) -> bool:
+        return self._query_matches(track.search_text)
 
     def _filter_row(self, row: Gtk.ListBoxRow) -> bool:
-        if not hasattr(row, "track"):
-            return True
-        return self._matches_search(row.track)
+        if hasattr(row, "track"):
+            return self._matches_search(row.track)
+        if hasattr(row, "group_name"):
+            return self._query_matches(row.group_name.lower())
+        return True
 
     def _on_sidebar_selected(self, _box, row) -> None:
         if row is None:
             return
         self.current_playlist = getattr(row, "playlist_name", None)
+        self.browse_by = getattr(row, "browse_by", None)
         self.populate_track_list()
 
     def _on_new_playlist(self, entry: Gtk.Entry) -> None:
@@ -394,6 +425,10 @@ class MainWindow(Gtk.ApplicationWindow):
     # ---- playback ----------------------------------------------------------
 
     def _on_track_activated(self, _listbox, row) -> None:
+        if hasattr(row, "group"):
+            self.queue.set_tracks(row.group, start=row.group[0])
+            self._play_track(self.queue.current())
+            return
         view = [t for t in self._view_tracks() if self._matches_search(t)]
         self.queue.set_tracks(view, start=row.track)
         self._play_track(self.queue.current())

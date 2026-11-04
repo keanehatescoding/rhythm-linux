@@ -43,6 +43,11 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Dropped files, shuffle, repeat and volume are remembered between launches (`settings.json`).
 - Keyboard shortcuts: Space play/pause, Ctrl+F search, Ctrl+Left/Right previous/next, S shuffle, R repeat, M mute. Letter keys are ignored while a text field has focus.
 
+## Milestone 8 (done)
+- Albums and Artists views in the sidebar. Each group shows its track count; activating a group plays all of its tracks.
+- Grouping lives in `library.group_tracks` (unit-tested). Blank album or artist values are grouped as "Unknown".
+- Search filters group names in these views.
+
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.
 

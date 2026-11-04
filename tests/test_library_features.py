@@ -1,10 +1,29 @@
 from types import SimpleNamespace
 
-from rhythm_linux.library import Track, cover_from_audio, read_cover, sort_tracks
+from rhythm_linux.library import (Track, cover_from_audio, group_tracks, read_cover,
+                                  sort_tracks)
 
 
 def _t(path, title, artist, album):
     return Track(path=path, title=title, artist=artist, album=album)
+
+
+def test_group_by_album_sorts_groups_and_tracks():
+    tracks = [
+        _t("/m/b.mp3", "Second", "Ann", "Zebra"),
+        _t("/m/a.mp3", "First", "Ann", "Zebra"),
+        _t("/m/c.mp3", "Solo", "Bo", "apple"),
+    ]
+    groups = group_tracks(tracks, "album")
+    assert [name for name, _ in groups] == ["apple", "Zebra"]
+    assert [t.path for t in groups[1][1]] == ["/m/a.mp3", "/m/b.mp3"]
+
+
+def test_group_by_artist_uses_unknown_for_blank_values():
+    tracks = [_t("/m/1.mp3", "A", "", ""), _t("/m/2.mp3", "B", "Ann", "")]
+    groups = dict(group_tracks(tracks, "artist"))
+    assert set(groups) == {"Unknown", "Ann"}
+    assert len(groups["Unknown"]) == 1
 
 
 def test_sort_by_artist_then_album_then_title():

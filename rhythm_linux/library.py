@@ -76,6 +76,20 @@ def sort_tracks(tracks: list[Track], by: str) -> list[Track]:
     return sorted(tracks, key=SORT_KEYS.get(by, SORT_KEYS["Artist"]))
 
 
+def group_tracks(tracks: list[Track], field: str) -> list[tuple[str, list[Track]]]:
+    """Group tracks by "album" or "artist". Blank values become "Unknown".
+
+    Groups are sorted by name; tracks inside a group are sorted by file path,
+    which usually keeps numbered files in album order.
+    """
+    groups: dict[str, list[Track]] = {}
+    for track in tracks:
+        key = (getattr(track, field) or "").strip() or "Unknown"
+        groups.setdefault(key, []).append(track)
+    return [(name, sorted(group, key=lambda t: t.path))
+            for name, group in sorted(groups.items(), key=lambda kv: kv[0].lower())]
+
+
 def cover_from_audio(audio) -> bytes | None:
     """Pull embedded cover art out of an already-opened mutagen object, if any."""
     if audio is None:

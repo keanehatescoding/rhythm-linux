@@ -1,11 +1,15 @@
 """Scan a folder for audio files and read their tags."""
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from mutagen import File as MutagenFile
+from mutagen import MutagenError
+
+log = logging.getLogger("rhythm_linux")
 
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wav", ".aiff", ".wma"}
 
@@ -29,10 +33,7 @@ class Track:
 
 
 def _tag(tags, key: str) -> str:
-    try:
-        value = tags.get(key)
-    except Exception:
-        return ""
+    value = tags.get(key)
     if not value:
         return ""
     if isinstance(value, (list, tuple)):
@@ -46,28 +47,31 @@ ID3_FRAMES = {"title": "TIT2", "artist": "TPE1", "album": "TALB"}
 
 
 def _id3_text(tags, frame_id: str) -> str:
-    try:
-        frame = tags.get(frame_id)
-    except Exception:
-        return ""
+    frame = tags.get(frame_id)
     text = getattr(frame, "text", None)
     return str(text[0]).strip() if text else ""
+
+
+def _open(path: str, easy: bool = False):
+    """Open a file with mutagen. A damaged or unsupported file gives None (the caller falls back
+    to the filename); an unreadable file is logged, since the user would expect its tags."""
+    try:
+        return MutagenFile(path, easy=easy) if easy else MutagenFile(path)
+    except MutagenError:
+        return None
+    except OSError as exc:
+        log.warning("could not read tags from %s: %s", path, exc)
+        return None
 
 
 def read_track(path: str | os.PathLike) -> Track:
     """Read tags for one file. Missing or unreadable tags fall back to the filename."""
     path = os.fspath(path)
-    try:
-        audio = MutagenFile(path, easy=True)
-    except Exception:
-        audio = None
+    audio = _open(path, easy=True)
     tags = getattr(audio, "tags", None) or {}
     values = {field: _tag(tags, field) for field in ID3_FRAMES}
     if not all(values.values()):
-        try:
-            raw = getattr(MutagenFile(path), "tags", None)
-        except Exception:
-            raw = None
+        raw = getattr(_open(path), "tags", None)
         if raw is not None:
             for field, frame_id in ID3_FRAMES.items():
                 values[field] = values[field] or _id3_text(raw, frame_id)
@@ -138,13 +142,11 @@ def cover_from_audio(audio) -> bytes | None:
 
 def read_cover(path: str | os.PathLike) -> bytes | None:
     """Return embedded cover image bytes for a file, or None."""
-    try:
-        audio = MutagenFile(os.fspath(path))
-    except Exception:
-        return None
+    audio = _open(os.fspath(path))
     try:
         return cover_from_audio(audio)
-    except Exception:
+    except (TypeError, ValueError, IndexError) as exc:  # malformed picture data
+        log.warning("could not read the cover from %s: %s", path, exc)
         return None
 
 

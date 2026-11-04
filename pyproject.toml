@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rhythm-linux"
+version = "0.1.0"
+description = "A native Linux music library and player. Not affiliated with Apple."
+readme = "README.md"
+requires-python = ">=3.10"
+# PyGObject (GTK 4) and GStreamer are system packages; pip cannot supply them reliably.
+dependencies = ["mutagen>=1.45"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+rhythm-linux = "rhythm_linux.__main__:main"
+
+[tool.setuptools]
+packages = ["rhythm_linux"]

@@ -3,14 +3,16 @@
 Status as of `a69c37c` on `master`. Items marked **open** are not done.
 
 ## 1. Packaging and install
-- [ ] **open** `pyproject.toml` with name, version, Python version and dependencies (PyGObject, mutagen)
-- [ ] **open** Install check: `pipx install .` on a clean machine starts the app
+- [x] `pyproject.toml` with name, version (0.1.0), Python version and dependencies (mutagen; PyGObject and GStreamer are system packages)
+- [x] Install check: installed into a scratch venv with system site packages; `rhythm-linux --help` runs. Still to do on a clean machine.
 - [ ] **open** Desktop launcher and icon installed by the package, not by hand
 - [ ] **open** Version number shown in the app (About or `--version`)
 
 ## 2. Documentation
-- [ ] **open** `README.md`: what the app does, install steps, system packages needed (GTK 4, GStreamer plugins, libimobiledevice, ifuse, KDE Connect)
-- [ ] **open** Note that iPhone sync is limited to read-only browsing, export and KDE Connect sending
+- [x] `README.md`: what the app does, install steps, system packages needed (GTK 4, GStreamer plugins, libimobiledevice, ifuse, KDE Connect)
+- [x] Note that iPhone sync is limited to read-only browsing, export and KDE Connect sending
+- [x] Arch package names in the README exist (checked with pacman)
+- [ ] **open** README install steps run on a clean machine
 - [ ] **open** Clean-room statement and licence (MIT or similar, your choice)
 - [ ] DESIGN.md is up to date through Milestone 19
 

@@ -16,6 +16,7 @@ from .library import (AUDIO_EXTENSIONS, SORT_KEYS, Track, group_tracks, merge_tr
 from .player import Player  # noqa: E402
 from .playlists import PlaylistStore  # noqa: E402
 from .equalizer import PRESET_NAMES, gains_for  # noqa: E402
+from . import iphone  # noqa: E402
 
 CROSSFADE_OPTIONS = [(0, "Crossfade off"), (3, "Crossfade 3 s"), (6, "Crossfade 6 s"), (10, "Crossfade 10 s")]
 from .queue import REPEAT_ALL, REPEAT_OFF, REPEAT_ONE, PlaybackQueue  # noqa: E402
@@ -24,6 +25,8 @@ from .stats import FILTERS, MAX_RATING, STATS_SORTS, TrackStats, filter_by_stats
 
 LIBRARY_LABEL = "Library"
 BROWSE_VIEWS = (("Albums", "album"), ("Artists", "artist"), ("Up Next", "queue"))  # under Library
+IPHONE_LABEL = "iPhone (read-only)"
+IPHONE_BROWSE = "iphone"
 PLAY_ICON = "media-playback-start-symbolic"
 PAUSE_ICON = "media-playback-pause-symbolic"
 
@@ -63,6 +66,14 @@ def _row(text: str, sublabel: str | None = None) -> Gtk.ListBoxRow:
         box.append(row.sub_label)
     row.set_child(box)
     return row
+
+
+def release_phone() -> None:
+    """Unmount the read-only iPhone view if it is mounted. Never raises."""
+    try:
+        iphone.unmount(iphone.default_mountpoint())
+    except Exception:  # a stuck or missing phone must not block quitting
+        pass
 
 
 def _listbox_rows(listbox: Gtk.ListBox):
@@ -338,10 +349,51 @@ class MainWindow(Gtk.ApplicationWindow):
         if self.browse_by == "queue":
             self._append_rows(self._populate_generation, self.queue.upcoming(), 0, queue_mode=True)
             return
+        if self.browse_by == IPHONE_BROWSE:
+            self._start_iphone_read()
+            return
         if self.browse_by is not None:
             self._append_group_rows()
             return
         self._append_rows(self._populate_generation, self._view_tracks(), 0)
+
+    def _start_iphone_read(self) -> None:
+        """Mount the phone read-only on a worker thread and list its audio files."""
+        self._iphone_generation = getattr(self, "_iphone_generation", 0) + 1
+        generation = self._iphone_generation
+        self.status.set_label("Reading iPhone…")
+        threading.Thread(target=self._iphone_worker, args=(generation,), daemon=True).start()
+
+    def _iphone_worker(self, generation: int) -> None:
+        # Off the main thread: talks to the phone and reads file names only.
+        try:
+            device = iphone.connected_device()
+            if device is None:
+                result = ("error", "No iPhone found. Plug it in, unlock it and tap Trust.")
+            else:
+                mountpoint = iphone.default_mountpoint()
+                iphone.mount_readonly(mountpoint)
+                files = iphone.list_audio_files(mountpoint)
+                result = ("ok", (device.name, mountpoint, files))
+        except Exception as exc:  # the phone tools fail in many ways; show the message
+            result = ("error", f"iPhone read failed: {exc}")
+        GLib.idle_add(self._iphone_finished, generation, result)
+
+    def _iphone_finished(self, generation: int, result) -> bool:
+        if generation != self._iphone_generation or self.browse_by != IPHONE_BROWSE:
+            return False  # the user moved on; drop this result
+        kind, payload = result
+        self.track_list.remove_all()
+        if kind == "error":
+            self.status.set_label(payload)
+            return False
+        name, mountpoint, files = payload
+        self.status.set_label(f"{name}: {len(files)} audio files (read-only)")
+        for path in files:
+            row = _row(path.name, str(path.parent.relative_to(mountpoint)))
+            row.iphone_file = path
+            self.track_list.append(row)
+        return False
 
     def _append_group_rows(self) -> None:
         """One row per album or artist. Activating a row plays every track in it."""
@@ -486,6 +538,10 @@ class MainWindow(Gtk.ApplicationWindow):
             row.playlist_name = None
             row.browse_by = browse
             self.sidebar.append(row)
+        iphone_row = _row(IPHONE_LABEL)
+        iphone_row.playlist_name = None
+        iphone_row.browse_by = IPHONE_BROWSE
+        self.sidebar.append(iphone_row)
         for name in names:
             row = _row(name)
             row.playlist_name = name
@@ -517,6 +573,8 @@ class MainWindow(Gtk.ApplicationWindow):
     def _filter_row(self, row: Gtk.ListBoxRow) -> bool:
         if hasattr(row, "track"):
             return self._matches_search(row.track)
+        if hasattr(row, "iphone_file"):
+            return self._query_matches(row.iphone_file.name.lower())
         if hasattr(row, "group_name"):
             return self._query_matches(row.group_name.lower())
         return True
@@ -635,6 +693,8 @@ class MainWindow(Gtk.ApplicationWindow):
     # ---- playback ----------------------------------------------------------
 
     def _on_track_activated(self, _listbox, row) -> None:
+        if hasattr(row, "iphone_file"):
+            return  # the iPhone view is a read-only list; playing from it is not built yet
         if getattr(row, "queue_offset", None) is not None:
             self._play_track(self.queue.jump(row.queue_offset))  # keep the queue, move within it
             return
@@ -819,6 +879,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_close(self, *_args) -> bool:
         self.player.stop()
+        release_phone()
         return False  # let the window close
 
     # ---- keyboard ----------------------------------------------------------
@@ -903,6 +964,7 @@ class RhythmApp(Gtk.Application):
         self.stats = TrackStats(stats_path)
         self.stats.load()
         self.connect("activate", self._on_activate)
+        self.connect("shutdown", lambda _app: release_phone())
 
     def _on_activate(self, app: Gtk.Application) -> None:
         MainWindow(app, self.music_dir, self.store, self.settings, self.stats).present()

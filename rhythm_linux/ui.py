@@ -125,7 +125,21 @@ def _on_row_bind(_factory, list_item) -> None:
 log = logging.getLogger("rhythm_linux")
 
 _phone_released = threading.Event()  # set when the app is closing
+
+# A phone that stops answering (unplugged or locked mid-read) can block a directory listing on a
+# stale mount for good, so the view gives up after this many seconds. A late answer is dropped.
+PHONE_READ_TIMEOUT_S = 60
+PHONE_NO_ANSWER = "The phone did not answer. Check that it is plugged in, unlocked and trusts this computer."
 _phone_thread: threading.Thread | None = None  # the worker that may be mounting right now
+
+
+def _release_stale_mount() -> None:
+    """Best effort: unmount a mount left behind by a phone that stopped answering. Runs off the
+    main thread, so a mount that will not release cannot freeze the window."""
+    try:
+        iphone.unmount(iphone.default_mountpoint())
+    except (RuntimeError, OSError, subprocess.TimeoutExpired) as exc:
+        log.warning("could not release the iPhone mount: %s", exc)
 
 
 def release_phone() -> None:
@@ -438,8 +452,21 @@ class MainWindow(Gtk.ApplicationWindow):
         generation = self._iphone_generation
         self.status.set_label("Reading iPhone…")
         global _phone_thread
+        self._iphone_pending = generation
+        GLib.timeout_add_seconds(PHONE_READ_TIMEOUT_S, self._iphone_timed_out, generation)
         _phone_thread = threading.Thread(target=self._iphone_worker, args=(generation,), daemon=True)
         _phone_thread.start()
+
+    def _iphone_timed_out(self, generation: int) -> bool:
+        if getattr(self, "_iphone_pending", None) != generation:
+            return False  # the phone answered, or the read was replaced
+        self._iphone_pending = None
+        if self.browse_by == IPHONE_BROWSE:
+            self._iphone_generation += 1  # a late answer from this read is now dropped
+            self.track_store.remove_all()
+            self.status.set_label(PHONE_NO_ANSWER)
+        threading.Thread(target=_release_stale_mount, daemon=True).start()
+        return False  # run once
 
     def _iphone_worker(self, generation: int) -> None:
         # Off the main thread: talks to the phone and reads file names only.
@@ -455,6 +482,9 @@ class MainWindow(Gtk.ApplicationWindow):
                     return
                 files = iphone.list_audio_files(mountpoint)
                 result = ("ok", (device.name, device.udid, mountpoint, files))
+        except subprocess.TimeoutExpired:
+            log.warning("the phone did not answer in time")
+            result = ("error", PHONE_NO_ANSWER)
         except Exception as exc:
             # Broad on purpose: this thread must always report back, or the view stays on
             # "Reading iPhone". The full traceback goes to stderr.
@@ -465,6 +495,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _iphone_finished(self, generation: int, result) -> bool:
         if generation != self._iphone_generation or self.browse_by != IPHONE_BROWSE:
             return False  # the user moved on; drop this result
+        self._iphone_pending = None
         kind, payload = result
         self.track_store.remove_all()
         if kind == "error":

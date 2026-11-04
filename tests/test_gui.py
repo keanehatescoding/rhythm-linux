@@ -138,3 +138,45 @@ def test_export_shown_copies_only_the_searched_tracks(app, music, tmp_path):
 
     assert sorted(p.name for p in dest.iterdir()) == ["gamma.wav"]
     assert "Exported 1 of 1" in win.status.get_label()
+
+
+def test_phone_that_never_answers_shows_an_error(app):
+    from rhythm_linux import iphone
+    from rhythm_linux.ui import IPHONE_BROWSE, PHONE_NO_ANSWER
+
+    win = app.get_active_window()
+    previous = win.browse_by
+    win.browse_by = IPHONE_BROWSE
+    try:
+        win._iphone_generation = 7
+        win._iphone_pending = 7
+        win._iphone_timed_out(7)
+        assert win.status.get_label() == PHONE_NO_ANSWER
+        # an answer from the read that timed out arrives late and is dropped
+        win._iphone_finished(7, ("ok", ("Phone", "UDID", Path("/nowhere"), [Path("/nowhere/a.mp3")])))
+        assert win.status.get_label() == PHONE_NO_ANSWER
+        assert win._iphone_generation == 8
+    finally:
+        win.browse_by = previous
+        win._iphone_pending = None
+
+
+def test_phone_command_timeout_shows_the_no_answer_message(app, monkeypatch):
+    import subprocess
+    from rhythm_linux import iphone
+    from rhythm_linux.ui import IPHONE_BROWSE, PHONE_NO_ANSWER
+
+    win = app.get_active_window()
+    previous = win.browse_by
+    win.browse_by = IPHONE_BROWSE
+    try:
+        def no_answer():
+            raise subprocess.TimeoutExpired(["idevice_id", "-l"], 15)
+
+        monkeypatch.setattr(iphone, "connected_device", no_answer)
+        win._iphone_generation = 9
+        win._iphone_worker(9)  # runs in this thread; the result comes back through the main loop
+        pump_until(lambda: win.status.get_label() == PHONE_NO_ANSWER)
+        assert win.status.get_label() == PHONE_NO_ANSWER
+    finally:
+        win.browse_by = previous

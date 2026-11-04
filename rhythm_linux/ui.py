@@ -17,7 +17,7 @@ from .player import Player  # noqa: E402
 from .playlists import PlaylistStore  # noqa: E402
 from .queue import REPEAT_ALL, REPEAT_OFF, REPEAT_ONE, PlaybackQueue  # noqa: E402
 from .settings import Settings  # noqa: E402
-from .stats import MAX_RATING, TrackStats  # noqa: E402
+from .stats import MAX_RATING, STATS_SORTS, TrackStats, sort_by_stats  # noqa: E402
 
 LIBRARY_LABEL = "Library"
 BROWSE_VIEWS = (("Albums", "album"), ("Artists", "artist"), ("Up Next", "queue"))  # under Library
@@ -147,7 +147,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.search = Gtk.Entry(placeholder_text="Search title, artist, album",
                                 primary_icon_name="system-search-symbolic", hexpand=True)
         self.search.connect("changed", lambda *_: self.track_list.invalidate_filter())
-        self.sort_dropdown = Gtk.DropDown.new_from_strings(list(SORT_KEYS))
+        self.sort_dropdown = Gtk.DropDown.new_from_strings(list(SORT_KEYS) + list(STATS_SORTS))
         self.sort_dropdown.set_tooltip_text("Sort library by")
         self.sort_dropdown.connect("notify::selected", self._on_sort_changed)
         search_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -271,7 +271,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _view_tracks(self) -> list[Track]:
         if self.current_playlist is None:
-            return sort_tracks(self.tracks, self._sort_key())
+            by = self._sort_key()
+            if by in STATS_SORTS:
+                return sort_by_stats(self.tracks, self.stats, by)
+            return sort_tracks(self.tracks, by)
         by_path = {t.path: t for t in self.tracks}
         return [by_path.get(p) or read_track(p) for p in self.store.tracks(self.current_playlist)]
 

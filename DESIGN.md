@@ -52,7 +52,7 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Ratings (0–5 stars) chosen from a dropdown for the selected track. Each track row shows its stars and play count.
 - Play count and last-played time are recorded each time a track starts.
 - Stored in `stats.json` in the data folder, separate from playlists. Store logic is in `rhythm_linux/stats.py` (unit-tested).
-- Not yet: sorting or filtering by rating or play count.
+- Sorting by rating and by play count is available in the sort dropdown ("Rating" and "Most played", highest first). Filtering by rating or play count is not yet implemented.
 
 ## Milestone 10 (done)
 - "Up Next" in the sidebar lists the tracks queued after the current one, in play order.

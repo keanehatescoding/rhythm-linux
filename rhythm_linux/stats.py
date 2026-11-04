@@ -58,3 +58,19 @@ class TrackStats:
         entry["plays"] = int(entry.get("plays", 0)) + 1
         entry["last_played"] = when.isoformat(timespec="seconds")
         self.save()
+
+
+STATS_SORTS = ("Rating", "Most played")
+
+
+def sort_by_stats(tracks, stats: TrackStats, by: str) -> list:
+    """Sort by rating or play count, highest first. Ties fall back to artist, then title."""
+    if by == "Rating":
+        def key(t):
+            return (-stats.rating(t.path), t.artist.lower(), t.title.lower(), t.path)
+    elif by == "Most played":
+        def key(t):
+            return (-stats.plays(t.path), t.artist.lower(), t.title.lower(), t.path)
+    else:
+        raise ValueError(f"not a stats sort: {by!r}")
+    return sorted(tracks, key=key)

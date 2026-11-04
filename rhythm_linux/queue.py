@@ -74,3 +74,15 @@ class PlaybackQueue:
         elif self.repeat == REPEAT_ALL:
             self._pos = len(self._order) - 1
         return self.current()
+
+    def upcoming(self) -> list[Track]:
+        """Tracks after the current one, in play order. Does not include repeat-all wraps."""
+        return self._order[self._pos + 1:] if self._order else []
+
+    def jump(self, offset: int) -> Optional[Track]:
+        """Make the track `offset` places after the current one current (0 is the next track)."""
+        target = self._pos + 1 + offset
+        if 0 <= target < len(self._order):
+            self._pos = target
+            return self.current()
+        return None

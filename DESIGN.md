@@ -54,6 +54,12 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Stored in `stats.json` in the data folder, separate from playlists. Store logic is in `rhythm_linux/stats.py` (unit-tested).
 - Not yet: sorting or filtering by rating or play count.
 
+## Milestone 10 (done)
+- "Up Next" in the sidebar lists the tracks queued after the current one, in play order.
+- Activating a row in Up Next jumps to that track and keeps the rest of the queue.
+- Queue logic is `PlaybackQueue.upcoming()` and `jump()` (unit-tested). Up Next refreshes when the track changes.
+- Not yet: reordering or removing queued tracks.
+
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.
 

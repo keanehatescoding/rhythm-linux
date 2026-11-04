@@ -20,7 +20,7 @@ from .settings import Settings  # noqa: E402
 from .stats import MAX_RATING, TrackStats  # noqa: E402
 
 LIBRARY_LABEL = "Library"
-BROWSE_VIEWS = (("Albums", "album"), ("Artists", "artist"))  # sidebar entries under Library
+BROWSE_VIEWS = (("Albums", "album"), ("Artists", "artist"), ("Up Next", "queue"))  # under Library
 PLAY_ICON = "media-playback-start-symbolic"
 PAUSE_ICON = "media-playback-pause-symbolic"
 
@@ -280,6 +280,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._populate_generation += 1
         self.track_list.remove_all()
         self.delete_playlist_btn.set_sensitive(self.current_playlist is not None)
+        if self.browse_by == "queue":
+            self._append_rows(self._populate_generation, self.queue.upcoming(), 0, queue_mode=True)
+            return
         if self.browse_by is not None:
             self._append_group_rows()
             return
@@ -349,16 +352,19 @@ class MainWindow(Gtk.ApplicationWindow):
 
     ROW_BATCH = 250
 
-    def _append_rows(self, generation: int, tracks: list[Track], start: int) -> bool:
+    def _append_rows(self, generation: int, tracks: list[Track], start: int,
+                     queue_mode: bool = False) -> bool:
         if generation != self._populate_generation:
             return False  # a newer list has been requested
-        for track in tracks[start:start + self.ROW_BATCH]:
+        for offset, track in enumerate(tracks[start:start + self.ROW_BATCH], start):
             row = _row(track.display_text, self._track_summary(track))
             row.track = track
+            if queue_mode:
+                row.queue_offset = offset  # places after the current track; used to jump
             self.track_list.append(row)
         self.track_list.invalidate_filter()
         if start + self.ROW_BATCH < len(tracks):
-            GLib.idle_add(self._append_rows, generation, tracks, start + self.ROW_BATCH)
+            GLib.idle_add(self._append_rows, generation, tracks, start + self.ROW_BATCH, queue_mode)
         else:
             self._finish_populate()
         return False
@@ -472,6 +478,9 @@ class MainWindow(Gtk.ApplicationWindow):
     # ---- playback ----------------------------------------------------------
 
     def _on_track_activated(self, _listbox, row) -> None:
+        if getattr(row, "queue_offset", None) is not None:
+            self._play_track(self.queue.jump(row.queue_offset))  # keep the queue, move within it
+            return
         if hasattr(row, "group"):
             self.queue.set_tracks(row.group, start=row.group[0])
             self._play_track(self.queue.current())
@@ -493,6 +502,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_btn.set_icon_name(PAUSE_ICON)
         self.stats.record_play(track.path)
         self._refresh_row_summary(track.path)
+        if self.browse_by == "queue":
+            self.populate_track_list()  # the upcoming list changed
 
     def _show_art(self, path: str) -> None:
         data = read_cover(path)

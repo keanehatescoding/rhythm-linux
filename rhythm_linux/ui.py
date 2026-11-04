@@ -1,6 +1,7 @@
 """GTK 4 user interface."""
 from __future__ import annotations
 
+import dataclasses
 import logging
 import subprocess
 import threading
@@ -453,7 +454,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     release_phone()
                     return
                 files = iphone.list_audio_files(mountpoint)
-                result = ("ok", (device.name, mountpoint, files))
+                result = ("ok", (device.name, device.udid, mountpoint, files))
         except Exception as exc:
             # Broad on purpose: this thread must always report back, or the view stays on
             # "Reading iPhone". The full traceback goes to stderr.
@@ -469,10 +470,11 @@ class MainWindow(Gtk.ApplicationWindow):
         if kind == "error":
             self.status.set_label(payload)
             return False
-        name, mountpoint, files = payload
+        name, udid, mountpoint, files = payload
         self.status.set_label(f"{name}: {len(files)} audio files (read-only)")
         self.track_store.splice(self.track_store.get_n_items(), 0, [
-            TrackRow(path.name, str(path.parent.relative_to(mountpoint)), iphone_file=path)
+            TrackRow(path.name, str(path.parent.relative_to(mountpoint)), iphone_file=path,
+                     iphone_key=iphone.play_key(udid, mountpoint, path))
             for path in files])
         return False
 
@@ -518,7 +520,7 @@ class MainWindow(Gtk.ApplicationWindow):
         track = self._selected_track()
         self._syncing_rating = True
         self.rating_dropdown.set_sensitive(track is not None)
-        self.rating_dropdown.set_selected(self.stats.rating(track.path) if track else 0)
+        self.rating_dropdown.set_selected(self.stats.rating(track.play_key) if track else 0)
         self._syncing_rating = False
 
     def _on_rating_chosen(self, *_args) -> None:
@@ -528,16 +530,16 @@ class MainWindow(Gtk.ApplicationWindow):
         stars = self.rating_dropdown.get_selected()
         if track is None or stars > MAX_RATING:  # an invalid position means no choice
             return
-        self.stats.set_rating(track.path, stars)
+        self.stats.set_rating(track.play_key, stars)
         self._refresh_row_summary(track.path)
         self._rebuild_if_filtered()
 
     def _track_summary(self, track: Track) -> str:
         parts = [track.album] if track.album else []
-        rating = self.stats.rating(track.path)
+        rating = self.stats.rating(track.play_key)
         if rating:
             parts.append("★" * rating + "☆" * (MAX_RATING - rating))
-        plays = self.stats.plays(track.path)
+        plays = self.stats.plays(track.play_key)
         if plays:
             parts.append(f"{plays} play" + ("" if plays == 1 else "s"))
         return " · ".join(parts)
@@ -891,9 +893,10 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         if hasattr(row, "iphone_file"):
             # Play from the read-only mount. Reads only; the mount lasts while the window is open.
-            files = [r.iphone_file for r in self._store_rows() if hasattr(r, "iphone_file")]
-            tracks = [read_track(p) for p in files]
-            start = tracks[files.index(row.iphone_file)]
+            phone_rows = [r for r in self._store_rows() if hasattr(r, "iphone_file")]
+            tracks = [dataclasses.replace(read_track(r.iphone_file), stats_key=r.iphone_key)
+                      for r in phone_rows]
+            start = tracks[phone_rows.index(row)]
             self.queue.set_tracks(tracks, start=start)
             self._play_track(self.queue.current())
             return
@@ -923,7 +926,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.now_playing.set_label(track.display_text)
         self._show_art(track.path)
         self.play_btn.set_icon_name(PAUSE_ICON)
-        self.stats.record_play(track.path)
+        self.stats.record_play(track.play_key)
         self._refresh_row_summary(track.path)
         self._rebuild_if_filtered()
         if self.browse_by == "queue":

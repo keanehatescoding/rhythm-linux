@@ -67,10 +67,10 @@ def sort_by_stats(tracks, stats: TrackStats, by: str) -> list:
     """Sort by rating or play count, highest first. Ties fall back to artist, then title."""
     if by == "Rating":
         def key(t):
-            return (-stats.rating(t.path), t.artist.lower(), t.title.lower(), t.path)
+            return (-stats.rating(t.play_key), t.artist.lower(), t.title.lower(), t.path)
     elif by == "Most played":
         def key(t):
-            return (-stats.plays(t.path), t.artist.lower(), t.title.lower(), t.path)
+            return (-stats.plays(t.play_key), t.artist.lower(), t.title.lower(), t.path)
     else:
         raise ValueError(f"not a stats sort: {by!r}")
     return sorted(tracks, key=key)
@@ -85,8 +85,8 @@ def filter_by_stats(tracks, stats: TrackStats, choice: str) -> list:
     if choice == "All tracks":
         return list(tracks)
     if choice == "Never played":
-        return [t for t in tracks if stats.plays(t.path) == 0]
+        return [t for t in tracks if stats.plays(t.play_key) == 0]
     if choice in _MIN_RATING_FOR_FILTER:
         minimum = _MIN_RATING_FOR_FILTER[choice]
-        return [t for t in tracks if stats.rating(t.path) >= minimum]
+        return [t for t in tracks if stats.rating(t.play_key) >= minimum]
     raise ValueError(f"not a stats filter: {choice!r}")

@@ -20,6 +20,12 @@ class Track:
     title: str
     artist: str
     album: str
+    stats_key: str = ""  # set for files whose path is not stable (the iPhone mount)
+
+    @property
+    def play_key(self) -> str:
+        """The key that play counts and ratings are stored under."""
+        return self.stats_key or self.path
 
     @property
     def search_text(self) -> str:

@@ -33,7 +33,7 @@ Status as of `a69c37c` on `master`. Items marked **open** are not done.
 ## 5. Phone features
 - [x] Check at startup that `ifuse`, `ideviceinfo` and `kdeconnect-cli` exist; show a clear message in the UI when one is missing. `rhythm_linux/phone_tools.py` lists the missing tools per feature (`tests/test_phone_tools.py`). The notice is added to the status bar after the scan, and each phone action names the missing tool instead of failing (iPhone browsing never starts; KDE Connect sending no longer reports "No paired phone"). Checked in the running window with `kdeconnect-cli` hidden.
 - [ ] **open** Test on a second distribution and a second iPhone model
-- [ ] **open** Play counts for iPhone files: key them by device and file, not by mount path
+- [x] Play counts for iPhone files: keyed by device and file, not by mount path. `iphone.play_key` gives `iphone:<UDID>:<path on the phone>`; `Track.play_key` returns it, and every rating and play-count call uses it (`tests/test_iphone_play_counts.py`). Checked in the running window with a fake phone row: the play counted under the device key. Counts saved before this change, under mount paths, are left in stats.json and no longer used.
 - [ ] **open** A phone that is unplugged or locked during browse shows an error, not a hang
 - [ ] Mount is always released on quit, including quit during a mount (checked)
 

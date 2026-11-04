@@ -38,6 +38,12 @@ def _run(args: list[str], timeout: float = 15) -> str:
     return result.stdout
 
 
+def play_key(udid: str, mountpoint: Path, path: Path) -> str:
+    """Stats key for a file on a phone: the device and the file's place on it. The mount path is
+    left out, so two phones, or a phone mounted somewhere else, do not share or lose play counts."""
+    return f"iphone:{udid}:{path.relative_to(mountpoint).as_posix()}"
+
+
 def connected_device() -> PhoneInfo | None:
     """The first iPhone visible over USB, or None."""
     udids = [line.strip() for line in _run(["idevice_id", "-l"]).splitlines() if line.strip()]

@@ -174,7 +174,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_list.connect("row-activated", self._on_track_activated)
         main.append(Gtk.ScrolledWindow(vexpand=True, child=self.track_list))
 
-        actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        # A wrapping row so the buttons drop to a second line in a narrow window
+        # instead of running past the right edge.
+        actions = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=False,
+                              column_spacing=6, row_spacing=6,
+                              min_children_per_line=1, max_children_per_line=12)
         self.target_dropdown = Gtk.DropDown(model=Gtk.StringList())
         self.add_to_btn = Gtk.Button(label="Add selected to playlist")
         self.add_to_btn.connect("clicked", self._on_add_to_playlist)

@@ -86,26 +86,13 @@ def pump_until(condition, timeout: float = 5.0) -> None:
 
 
 def visible_names(win) -> list[str]:
-    names = []
-    index = 0
-    row = win.track_list.get_row_at_index(index)
-    while row is not None:
-        if hasattr(row, "track") and win._filter_row(row):
-            names.append(Path(row.track.path).name)
-        index += 1
-        row = win.track_list.get_row_at_index(index)
-    return names
+    """Names of the tracks the list is showing (search and filter applied)."""
+    return [Path(row.track.path).name for row in win._visible_rows() if hasattr(row, "track")]
 
 
 def displayed_names(win) -> list[str]:
-    """Rows GTK is actually showing (after the list's own filter has run)."""
-    names = []
-    row = win.track_list.get_first_child()
-    while row is not None:
-        if hasattr(row, "track") and row.get_child_visible():
-            names.append(Path(row.track.path).name)
-        row = row.get_next_sibling()
-    return names
+    """Same as visible_names: the list model is filtered directly, so no separate widget check is needed."""
+    return visible_names(win)
 
 
 def test_library_lists_every_track_in_the_music_folder(app):

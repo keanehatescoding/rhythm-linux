@@ -10,7 +10,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, Gio, GLib, Gtk, Pango  # noqa: E402
+from gi.repository import Gdk, Gio, GLib, GObject, Gtk, Pango  # noqa: E402
 
 from .library import (AUDIO_EXTENSIONS, SORT_KEYS, Track, group_tracks, merge_tracks,  # noqa: E402
                       read_cover, read_track, scan_folder, sort_tracks)
@@ -59,6 +59,16 @@ def _label(text: str, dim: bool = False) -> Gtk.Label:
 RATING_LABELS = ["No rating"] + ["★" * n for n in range(1, MAX_RATING + 1)]
 
 
+def _listbox_rows(listbox: Gtk.ListBox):
+    index = 0
+    while True:
+        row = listbox.get_row_at_index(index)
+        if row is None:
+            return
+        yield row
+        index += 1
+
+
 def _row(text: str, sublabel: str | None = None) -> Gtk.ListBoxRow:
     """A list row. Pass sublabel=None for no second line; "" keeps an empty second line."""
     row = Gtk.ListBoxRow()
@@ -70,6 +80,44 @@ def _row(text: str, sublabel: str | None = None) -> Gtk.ListBoxRow:
         box.append(row.sub_label)
     row.set_child(box)
     return row
+
+
+class TrackRow(GObject.Object):
+    """One entry in the track list: the text shown, plus the object it stands for.
+
+    Optional attributes (track, iphone_file, group, group_name, queue_offset) are set only
+    on the kinds of rows that have them, so hasattr() tells the kinds apart.
+    """
+
+    def __init__(self, title: str, summary: str | None = None, **attrs):
+        super().__init__()
+        self.title = title
+        self.summary = summary  # the second line; None means no second line
+        for name, value in attrs.items():
+            setattr(self, name, value)
+
+
+def _track_factory() -> Gtk.SignalListItemFactory:
+    factory = Gtk.SignalListItemFactory()
+    factory.connect("setup", _on_row_setup)
+    factory.connect("bind", _on_row_bind)
+    return factory
+
+
+def _on_row_setup(_factory, list_item) -> None:
+    box = _margins(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2), 6)
+    box.append(_label(""))
+    box.append(_label("", dim=True))
+    list_item.set_child(box)
+
+
+def _on_row_bind(_factory, list_item) -> None:
+    row = list_item.get_item()
+    box = list_item.get_child()
+    title, sub = box.get_first_child(), box.get_last_child()
+    title.set_label(row.title)
+    sub.set_label(row.summary or "")
+    sub.set_visible(row.summary is not None)
 
 
 log = logging.getLogger("rhythm_linux")
@@ -89,16 +137,6 @@ def release_phone() -> None:
     except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
         # A stuck or missing phone must not block quitting; say what happened on stderr.
         log.warning("Could not unmount the iPhone view: %s", exc)
-
-
-def _listbox_rows(listbox: Gtk.ListBox):
-    index = 0
-    while True:
-        row = listbox.get_row_at_index(index)
-        if row is None:
-            return
-        yield row
-        index += 1
 
 
 class MainWindow(Gtk.ApplicationWindow):
@@ -217,10 +255,16 @@ class MainWindow(Gtk.ApplicationWindow):
         search_row.append(self.sort_dropdown)
         main.append(search_row)
 
-        self.track_list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
-        self.track_list.add_css_class("boxed-list")
-        self.track_list.set_filter_func(self._filter_row)
-        self.track_list.connect("row-activated", self._on_track_activated)
+        # Only the rows on screen are built, so search and sort stay quick on a large library.
+        self.track_store = Gio.ListStore.new(TrackRow)
+        self._track_filter = Gtk.CustomFilter.new(self._filter_row)
+        self._track_filtered = Gtk.FilterListModel.new(self.track_store, self._track_filter)
+        self.track_selection = Gtk.SingleSelection.new(self._track_filtered)
+        self.track_selection.set_autoselect(False)
+        self.track_selection.set_can_unselect(True)
+        self.track_list = Gtk.ListView(model=self.track_selection, factory=_track_factory())
+        self.track_list.set_show_separators(True)
+        self.track_list.connect("activate", self._on_list_activated)
         main.append(Gtk.ScrolledWindow(vexpand=True, child=self.track_list))
 
         # A wrapping row so the buttons drop to a second line in a narrow window
@@ -250,7 +294,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.send_shown_btn = Gtk.Button(label="Send shown to phone",
                                          tooltip_text="Send the tracks in this list to the paired phone with KDE Connect")
         self.send_shown_btn.connect("clicked", self._on_send_shown)
-        self.track_list.connect("row-selected", lambda *_: self._update_playlist_controls())
+        self.track_selection.connect("notify::selected-item", lambda *_: self._update_playlist_controls())
         for widget in (self.target_dropdown, self.add_to_btn, self.remove_btn,
                        self.move_up_btn, self.move_down_btn, self.rating_dropdown,
                        self.export_shown_btn, self.send_shown_btn):
@@ -365,7 +409,7 @@ class MainWindow(Gtk.ApplicationWindow):
         """Rebuild the track list in small batches so large libraries don't freeze the window."""
         self._prepare_next()  # the queue may have changed; keep the gapless hand-off in step
         self._populate_generation += 1
-        self.track_list.remove_all()
+        self.track_store.remove_all()
         self.delete_playlist_btn.set_sensitive(self.current_playlist is not None)
         self.rename_playlist_entry.set_sensitive(self.current_playlist is not None)
         self.export_playlist_btn.set_sensitive(self.current_playlist is not None)
@@ -414,31 +458,28 @@ class MainWindow(Gtk.ApplicationWindow):
         if generation != self._iphone_generation or self.browse_by != IPHONE_BROWSE:
             return False  # the user moved on; drop this result
         kind, payload = result
-        self.track_list.remove_all()
+        self.track_store.remove_all()
         if kind == "error":
             self.status.set_label(payload)
             return False
         name, mountpoint, files = payload
         self.status.set_label(f"{name}: {len(files)} audio files (read-only)")
-        for path in files:
-            row = _row(path.name, str(path.parent.relative_to(mountpoint)))
-            row.iphone_file = path
-            self.track_list.append(row)
+        self.track_store.splice(self.track_store.get_n_items(), 0, [
+            TrackRow(path.name, str(path.parent.relative_to(mountpoint)), iphone_file=path)
+            for path in files])
         return False
 
     def _append_group_rows(self) -> None:
         """One row per album or artist. Activating a row plays every track in it."""
+        rows = []
         for name, tracks in group_tracks(self.tracks, self.browse_by):
             count = f"{len(tracks)} track" + ("" if len(tracks) == 1 else "s")
-            row = _row(name, count)
-            row.group_name = name
-            row.group = tracks
-            self.track_list.append(row)
-        self.track_list.invalidate_filter()
+            rows.append(TrackRow(name, count, group_name=name, group=tracks))
+        self.track_store.splice(self.track_store.get_n_items(), 0, rows)  # the filter model filters new rows itself
         self._update_playlist_controls()
 
     def _update_playlist_controls(self) -> None:
-        row = self.track_list.get_selected_row()
+        row = self._selected_row()
         if self.browse_by == "queue":
             self._update_queue_controls(row)
             self._sync_rating_control()
@@ -449,7 +490,7 @@ class MainWindow(Gtk.ApplicationWindow):
         in_playlist = self.current_playlist is not None
         has_sel = in_playlist and row is not None
         count = len(self.store.tracks(self.current_playlist)) if in_playlist else 0
-        index = row.get_index() if has_sel else -1
+        index = self._store_index(row) if has_sel else -1
         self.remove_btn.set_sensitive(has_sel)
         self.move_up_btn.set_sensitive(has_sel and index > 0)
         self.move_down_btn.set_sensitive(has_sel and index < count - 1)
@@ -507,13 +548,14 @@ class MainWindow(Gtk.ApplicationWindow):
         return False  # run once
 
     def _refresh_row_summary(self, track_path: str) -> None:
-        for row in _listbox_rows(self.track_list):
+        for position, row in enumerate(self._store_rows()):
             track = getattr(row, "track", None)
-            if track is not None and track.path == track_path and row.sub_label is not None:
-                row.sub_label.set_label(self._track_summary(track))
+            if track is not None and track.path == track_path and row.summary is not None:
+                row.summary = self._track_summary(track)
+                self.track_store.items_changed(position, 1, 1)  # makes the widget redraw its labels
 
     def _on_move(self, delta: int) -> None:
-        row = self.track_list.get_selected_row()
+        row = self._selected_row()
         if row is None:
             return
         if self.browse_by == "queue":
@@ -524,7 +566,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         if self.current_playlist is None:
             return
-        self._pending_select = self.store.move_track(self.current_playlist, row.get_index(), delta)
+        self._pending_select = self.store.move_track(self.current_playlist, self._store_index(row), delta)
         self.populate_track_list()
 
     ROW_BATCH = 250
@@ -533,13 +575,13 @@ class MainWindow(Gtk.ApplicationWindow):
                      queue_mode: bool = False) -> bool:
         if generation != self._populate_generation:
             return False  # a newer list has been requested
+        batch = []
         for offset, track in enumerate(tracks[start:start + self.ROW_BATCH], start):
-            row = _row(track.display_text, self._track_summary(track))
-            row.track = track
+            attrs = {"track": track}
             if queue_mode:
-                row.queue_offset = offset  # places after the current track; used to jump
-            self.track_list.append(row)
-        self.track_list.invalidate_filter()
+                attrs["queue_offset"] = offset  # places after the current track; used to jump
+            batch.append(TrackRow(track.display_text, self._track_summary(track), **attrs))
+        self.track_store.splice(self.track_store.get_n_items(), 0, batch)  # the filter model filters new rows itself
         if start + self.ROW_BATCH < len(tracks):
             GLib.idle_add(self._append_rows, generation, tracks, start + self.ROW_BATCH, queue_mode)
         else:
@@ -548,10 +590,11 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _finish_populate(self) -> None:
         if self._pending_select is not None:
-            row = self.track_list.get_row_at_index(self._pending_select)
+            rows = self._store_rows()
+            row = rows[self._pending_select] if 0 <= self._pending_select < len(rows) else None
             self._pending_select = None
             if row is not None:
-                self.track_list.select_row(row)
+                self._select_row(row)
         self._update_playlist_controls()
 
     def refresh_playlists(self) -> None:
@@ -610,10 +653,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _apply_search(self) -> bool:
         self._search_timer = 0
-        self.track_list.invalidate_filter()
+        self._track_filter.changed(Gtk.FilterChange.DIFFERENT)
         return False
 
-    def _filter_row(self, row: Gtk.ListBoxRow) -> bool:
+    def _filter_row(self, row: TrackRow) -> bool:
         if hasattr(row, "track"):
             return self._matches_search(row.track)
         if hasattr(row, "iphone_file"):
@@ -658,9 +701,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _shown_track_paths(self) -> list[Path]:
         """Files for the tracks currently visible in the list (search and filter applied)."""
         paths: list[Path] = []
-        for row in _listbox_rows(self.track_list):
-            if not row.get_child_visible():
-                continue
+        for row in self._visible_rows():
             if hasattr(row, "track"):
                 paths.append(Path(row.track.path))
             elif hasattr(row, "iphone_file"):
@@ -782,8 +823,32 @@ class MainWindow(Gtk.ApplicationWindow):
         self.populate_track_list()
 
     def _selected_track(self) -> Track | None:
-        row = self.track_list.get_selected_row()
-        return getattr(row, "track", None)
+        return getattr(self._selected_row(), "track", None)
+
+    def _selected_row(self) -> TrackRow | None:
+        return self.track_selection.get_selected_item()
+
+    def _store_rows(self) -> list[TrackRow]:
+        """Every row in the list, whether or not search and filter hide it."""
+        return [self.track_store.get_item(i) for i in range(self.track_store.get_n_items())]
+
+    def _visible_rows(self) -> list[TrackRow]:
+        """The rows the user sees: search and filter applied."""
+        return [self._track_filtered.get_item(i) for i in range(self._track_filtered.get_n_items())]
+
+    def _store_index(self, row: TrackRow) -> int:
+        """Position of a row in the full list, counting rows that search hides (playlist order)."""
+        found, position = self.track_store.find(row)
+        return position if found else -1
+
+    def _select_row(self, row: TrackRow) -> None:
+        for position, shown in enumerate(self._visible_rows()):
+            if shown is row:
+                self.track_selection.set_selected(position)
+                return
+
+    def _on_list_activated(self, _view, position: int) -> None:
+        self._activate_row(self._track_filtered.get_item(position))
 
     def _on_add_to_playlist(self, _btn) -> None:
         track = self._selected_track()
@@ -796,7 +861,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.status.set_label(f"Added to {name}")
 
     def _on_remove_from_playlist(self, _btn) -> None:
-        row = self.track_list.get_selected_row()
+        row = self._selected_row()
         if row is None:
             return
         if self.browse_by == "queue":
@@ -806,15 +871,17 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         if self.current_playlist is None:
             return
-        self.store.remove_track(self.current_playlist, row.get_index())
+        self.store.remove_track(self.current_playlist, self._store_index(row))
         self.populate_track_list()
 
     # ---- playback ----------------------------------------------------------
 
-    def _on_track_activated(self, _listbox, row) -> None:
+    def _activate_row(self, row: TrackRow | None) -> None:
+        if row is None:
+            return
         if hasattr(row, "iphone_file"):
             # Play from the read-only mount. Reads only; the mount lasts while the window is open.
-            files = [r.iphone_file for r in _listbox_rows(self.track_list) if hasattr(r, "iphone_file")]
+            files = [r.iphone_file for r in self._store_rows() if hasattr(r, "iphone_file")]
             tracks = [read_track(p) for p in files]
             start = tracks[files.index(row.iphone_file)]
             self.queue.set_tracks(tracks, start=start)
@@ -881,9 +948,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _toggle_play(self) -> None:
         if not self.player.has_media:
-            row = self.track_list.get_selected_row()
+            row = self._selected_row()
             if row is not None:
-                self._on_track_activated(self.track_list, row)
+                self._activate_row(row)
             return
         if self.player.is_playing:
             self.player.pause()
@@ -1078,8 +1145,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
 class RhythmApp(Gtk.Application):
     def __init__(self, music_dir: Path | None, store_path: Path, settings_path: Path,
-                 stats_path: Path):
-        super().__init__(application_id="local.rhythm.Linux",
+                 stats_path: Path, application_id: str = "local.rhythm.Linux"):
+        # application_id is a parameter so a test can run a second instance beside the real one.
+        super().__init__(application_id=application_id,
                          flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
         self.settings = Settings(settings_path)
         self.settings.load()

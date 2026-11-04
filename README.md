@@ -74,6 +74,10 @@ Rhythm does not send any of this data anywhere.
 - Linux only. The iPhone view is read-only, and the app never writes to the phone's music database.
 - Tracks are not synced into Apple Music.
 
+## Clean-room statement
+
+Rhythm is written from public documentation (GTK, GStreamer, mutagen, the Python standard library, freedesktop icon names) and its own design. The project rules forbid decompiling, disassembling or inspecting Apple's software, including iTunes for Windows. The repository has no Apple artwork, icons, strings or layout assets; the app uses only generic system icons. Its playlist and stats files are its own JSON formats. The rules are in [DESIGN.md](DESIGN.md).
+
 ## Tests
 
 ```

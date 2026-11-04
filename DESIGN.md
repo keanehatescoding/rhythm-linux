@@ -94,6 +94,11 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Filter logic is `filter_by_stats` in `stats.py` (unit-tested). Checked headlessly with rated and unrated test files: the filtered list and the visible rows matched.
 - A play or a rating change re-runs an active filter, so a track that no longer matches leaves the list. Group views (Albums, Artists) are not filtered.
 
+## Milestone 18 (done)
+- "Export shown to folder…" copies the tracks in the current list (after search and filter) into a folder you choose. It works for the library, playlists, Up Next and the iPhone view. Group views (Albums, Artists) have no files to export.
+- Copies keep their file names and never overwrite: a clash becomes `name (2).ext`. Copying runs on a worker thread; the status line reports how many copied and any failures. Logic is `rhythm_linux/export.py` (unit-tested). Checked headlessly: search narrowed the list to two tracks and exactly those two were copied.
+- This is the Linux-side step for getting music to the phone. Copying into a phone app is not built yet; it needs the app chosen first.
+
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.
 

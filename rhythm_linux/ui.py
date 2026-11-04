@@ -17,6 +17,7 @@ from .player import Player  # noqa: E402
 from .playlists import PlaylistStore  # noqa: E402
 from .equalizer import PRESET_NAMES, gains_for  # noqa: E402
 from . import iphone  # noqa: E402
+from .export import copy_tracks  # noqa: E402
 
 CROSSFADE_OPTIONS = [(0, "Crossfade off"), (3, "Crossfade 3 s"), (6, "Crossfade 6 s"), (10, "Crossfade 10 s")]
 from .queue import REPEAT_ALL, REPEAT_OFF, REPEAT_ONE, PlaybackQueue  # noqa: E402
@@ -236,9 +237,13 @@ class MainWindow(Gtk.ApplicationWindow):
         self.rating_dropdown.set_sensitive(False)
         self._syncing_rating = False  # True while we set the dropdown from code
         self.rating_dropdown.connect("notify::selected", self._on_rating_chosen)
+        self.export_shown_btn = Gtk.Button(label="Export shown to folder…",
+                                           tooltip_text="Copy the tracks in this list (after search and filter)")
+        self.export_shown_btn.connect("clicked", self._on_export_shown)
         self.track_list.connect("row-selected", lambda *_: self._update_playlist_controls())
         for widget in (self.target_dropdown, self.add_to_btn, self.remove_btn,
-                       self.move_up_btn, self.move_down_btn, self.rating_dropdown):
+                       self.move_up_btn, self.move_down_btn, self.rating_dropdown,
+                       self.export_shown_btn):
             actions.append(widget)
         main.append(actions)
         paned.set_end_child(main)
@@ -624,6 +629,47 @@ class MainWindow(Gtk.ApplicationWindow):
         self.current_playlist = new_name
         self.refresh_playlists()
         self.populate_track_list()
+
+    def _shown_track_paths(self) -> list[Path]:
+        """Files for the tracks currently visible in the list (search and filter applied)."""
+        paths: list[Path] = []
+        for row in _listbox_rows(self.track_list):
+            if not row.get_child_visible():
+                continue
+            if hasattr(row, "track"):
+                paths.append(Path(row.track.path))
+            elif hasattr(row, "iphone_file"):
+                paths.append(row.iphone_file)
+        return paths
+
+    def _on_export_shown(self, _btn) -> None:
+        paths = self._shown_track_paths()
+        if not paths:
+            self.status.set_label("Nothing to export in this list")
+            return
+        dialog = Gtk.FileDialog(title="Export to folder")
+        dialog.select_folder(self, None, lambda d, r: self._on_export_folder_chosen(d, r, paths))
+
+    def _on_export_folder_chosen(self, dialog: Gtk.FileDialog, result, paths: list[Path]) -> None:
+        try:
+            folder = dialog.select_folder_finish(result)
+        except GLib.Error:
+            return  # cancelled
+        self.status.set_label(f"Exporting {len(paths)} tracks…")
+        threading.Thread(target=self._export_worker, args=(paths, Path(folder.get_path())),
+                         daemon=True).start()
+
+    def _export_worker(self, paths: list[Path], folder: Path) -> None:
+        # Off the main thread: copies files only, touches no widgets.
+        GLib.idle_add(self._export_finished, folder, copy_tracks(paths, folder))
+
+    def _export_finished(self, folder: Path, result) -> bool:
+        message = f"Exported {len(result.copied)} of {len(result.copied) + len(result.failed)} to {folder}"
+        if result.failed:
+            first_source, reason = result.failed[0]
+            message += f"; {len(result.failed)} failed (e.g. {first_source.name}: {reason})"
+        self.status.set_label(message)
+        return False
 
     def _on_export_playlist(self, _btn) -> None:
         name = self.current_playlist

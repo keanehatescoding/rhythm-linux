@@ -40,6 +40,20 @@ def _tag(tags, key: str) -> str:
     return str(value).strip()
 
 
+# ID3 frame names for the three fields. AIFF and WAV files keep ID3 tags, and mutagen's
+# easy mode does not map them, so these are read directly when the easy keys are empty.
+ID3_FRAMES = {"title": "TIT2", "artist": "TPE1", "album": "TALB"}
+
+
+def _id3_text(tags, frame_id: str) -> str:
+    try:
+        frame = tags.get(frame_id)
+    except Exception:
+        return ""
+    text = getattr(frame, "text", None)
+    return str(text[0]).strip() if text else ""
+
+
 def read_track(path: str | os.PathLike) -> Track:
     """Read tags for one file. Missing or unreadable tags fall back to the filename."""
     path = os.fspath(path)
@@ -48,8 +62,17 @@ def read_track(path: str | os.PathLike) -> Track:
     except Exception:
         audio = None
     tags = getattr(audio, "tags", None) or {}
-    title = _tag(tags, "title") or Path(path).stem
-    return Track(path=path, title=title, artist=_tag(tags, "artist"), album=_tag(tags, "album"))
+    values = {field: _tag(tags, field) for field in ID3_FRAMES}
+    if not all(values.values()):
+        try:
+            raw = getattr(MutagenFile(path), "tags", None)
+        except Exception:
+            raw = None
+        if raw is not None:
+            for field, frame_id in ID3_FRAMES.items():
+                values[field] = values[field] or _id3_text(raw, frame_id)
+    title = values["title"] or Path(path).stem
+    return Track(path=path, title=title, artist=values["artist"], album=values["album"])
 
 
 def scan_folder(root: str | os.PathLike) -> list[Track]:

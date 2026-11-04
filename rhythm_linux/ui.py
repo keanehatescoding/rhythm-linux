@@ -1,9 +1,10 @@
 """GTK 4 user interface."""
 from __future__ import annotations
 
-from pathlib import Path
-
+import logging
+import subprocess
 import threading
+from pathlib import Path
 
 import gi
 
@@ -70,6 +71,8 @@ def _row(text: str, sublabel: str | None = None) -> Gtk.ListBoxRow:
     return row
 
 
+log = logging.getLogger("rhythm_linux")
+
 _phone_released = threading.Event()  # set when the app is closing
 _phone_thread: threading.Thread | None = None  # the worker that may be mounting right now
 
@@ -82,8 +85,9 @@ def release_phone() -> None:
         if _phone_thread is not None and _phone_thread.is_alive():
             _phone_thread.join(timeout=20)
         iphone.unmount(iphone.default_mountpoint())
-    except Exception:  # a stuck or missing phone must not block quitting
-        pass
+    except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+        # A stuck or missing phone must not block quitting; say what happened on stderr.
+        log.warning("Could not unmount the iPhone view: %s", exc)
 
 
 def _listbox_rows(listbox: Gtk.ListBox):
@@ -397,7 +401,10 @@ class MainWindow(Gtk.ApplicationWindow):
                     return
                 files = iphone.list_audio_files(mountpoint)
                 result = ("ok", (device.name, mountpoint, files))
-        except Exception as exc:  # the phone tools fail in many ways; show the message
+        except Exception as exc:
+            # Broad on purpose: this thread must always report back, or the view stays on
+            # "Reading iPhone". The full traceback goes to stderr.
+            log.exception("iPhone read failed")
             result = ("error", f"iPhone read failed: {exc}")
         GLib.idle_add(self._iphone_finished, generation, result)
 
@@ -667,6 +674,8 @@ class MainWindow(Gtk.ApplicationWindow):
         try:
             ids = phone_send.paired_device_ids()
         except Exception as exc:
+            # Broad on purpose: this thread must always report back. Traceback goes to stderr.
+            log.exception("KDE Connect lookup failed")
             GLib.idle_add(self._send_finished, None, f"KDE Connect error: {exc}")
             return
         if not ids:

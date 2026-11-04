@@ -100,3 +100,5 @@ A native Linux music library and player. Not affiliated with or derived from App
 ## iPhone sync status
 - Phone is paired and readable via libimobiledevice and `ifuse` (read-only). `usbmuxd` is running.
 - The phone currently has no music files, so there is nothing to test a transfer with.
+- Read-only browse (`rhythm_linux/iphone.py`): `python3 -m rhythm_linux.iphone` prints the connected phone and its audio files. It mounts with `ifuse -o ro` in `~/.cache/rhythm-linux/iphone-mount` and unmounts afterwards. Listing ignores symlinks and stops at depth 6 (unit-tested). Nothing writes to the phone.
+- Decided: no writes to `iTunes_Control` or Apple's music database. Option 2 (copy into a file-sharing app) is the next candidate if we want the phone to receive files.

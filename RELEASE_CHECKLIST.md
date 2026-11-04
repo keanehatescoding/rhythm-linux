@@ -38,8 +38,8 @@ Status as of `a69c37c` on `master`. Items marked **open** are not done.
 - [ ] Mount is always released on quit, including quit during a mount (checked)
 
 ## 6. Data and privacy
-- [ ] **open** Settings and stats location documented, plus how to reset them
-- [ ] **open** No network calls except KDE Connect on your own network (confirm by checking the code)
+- [x] Settings and stats location documented, plus how to reset them (`README.md`, "Where data is kept": playlists, stats, settings, log, `.json.bak` copies, `XDG_*` overrides, and reset steps; paths checked against `__main__.py` and `logsetup.py`)
+- [x] No network calls except KDE Connect on your own network (checked in the code). `rhythm_linux/` has no socket, urllib, requests, http, ssl or Soup code, and nothing calls `Gtk.show_uri`, `Gio.AppInfo` launch or `webbrowser`. The only external programs are `kdeconnect-cli` (KDE Connect, on the local network) and `idevice_id`, `ideviceinfo`, `ifuse`, `fusermount` (USB or local). Every GStreamer URI is built with `Gst.filename_to_uri` (`player.py`: lines 173 and 192, the gapless `_next_uri` and the current track), so playbin only opens local files.
 - [ ] Clean-room rule kept: no Apple binaries inspected; no Apple artwork or strings used
 
 ## 7. Accessibility and polish

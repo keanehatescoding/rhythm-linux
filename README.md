@@ -51,11 +51,23 @@ python3 -m rhythm_linux --music-dir ~/Music
 
 ## Where data is kept
 
-- Playlists and play statistics: `~/.local/share/rhythm-linux/` (`playlists.json`, `stats.json`)
-- Settings: `~/.config/rhythm-linux/settings.json`
+- Playlists: `~/.local/share/rhythm-linux/playlists.json`
+- Play counts and ratings: `~/.local/share/rhythm-linux/stats.json`. iPhone tracks are counted under the phone's ID and the file's path on the phone, so the counts do not depend on where the phone is mounted.
+- Settings (including the last music folder): `~/.config/rhythm-linux/settings.json`
+- Log: `~/.local/share/rhythm-linux/rhythm-linux.log`, with warnings and errors only. It rotates at 1 MB and keeps three old copies (`.1` to `.3`).
 - The iPhone view mounts the phone at `~/.cache/rhythm-linux/iphone-mount` and releases it on quit.
 
-Deleting these files resets the app to its defaults.
+If `XDG_DATA_HOME` or `XDG_CONFIG_HOME` is set, the folders above move with it.
+
+Each file is written atomically. If a file is damaged, the app moves it to a `.json.bak` copy and starts with defaults.
+
+To reset the app to its defaults:
+
+1. Quit Rhythm.
+2. Delete the files you want to reset: `playlists.json`, `stats.json`, `settings.json`, and any `.json.bak` copies beside them. Deleting the whole `~/.local/share/rhythm-linux/` folder also removes the log.
+3. Start Rhythm again. With no saved music folder, it scans `~/Music`; choose another folder with the folder button.
+
+Rhythm does not send any of this data anywhere.
 
 ## Limits
 

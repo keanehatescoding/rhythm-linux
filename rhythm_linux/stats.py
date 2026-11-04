@@ -74,3 +74,19 @@ def sort_by_stats(tracks, stats: TrackStats, by: str) -> list:
     else:
         raise ValueError(f"not a stats sort: {by!r}")
     return sorted(tracks, key=key)
+
+
+FILTERS = ("All tracks", "Rated 1+ stars", "Rated 3+ stars", "Rated 5 stars", "Never played")
+_MIN_RATING_FOR_FILTER = {"Rated 1+ stars": 1, "Rated 3+ stars": 3, "Rated 5 stars": 5}
+
+
+def filter_by_stats(tracks, stats: TrackStats, choice: str) -> list:
+    """Keep tracks matching a rating or play-count filter from FILTERS. 'All tracks' keeps everything."""
+    if choice == "All tracks":
+        return list(tracks)
+    if choice == "Never played":
+        return [t for t in tracks if stats.plays(t.path) == 0]
+    if choice in _MIN_RATING_FOR_FILTER:
+        minimum = _MIN_RATING_FOR_FILTER[choice]
+        return [t for t in tracks if stats.rating(t.path) >= minimum]
+    raise ValueError(f"not a stats filter: {choice!r}")

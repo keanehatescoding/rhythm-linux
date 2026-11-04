@@ -20,7 +20,7 @@ from .equalizer import PRESET_NAMES, gains_for  # noqa: E402
 CROSSFADE_OPTIONS = [(0, "Crossfade off"), (3, "Crossfade 3 s"), (6, "Crossfade 6 s"), (10, "Crossfade 10 s")]
 from .queue import REPEAT_ALL, REPEAT_OFF, REPEAT_ONE, PlaybackQueue  # noqa: E402
 from .settings import Settings  # noqa: E402
-from .stats import MAX_RATING, STATS_SORTS, TrackStats, sort_by_stats  # noqa: E402
+from .stats import FILTERS, MAX_RATING, STATS_SORTS, TrackStats, filter_by_stats, sort_by_stats  # noqa: E402
 
 LIBRARY_LABEL = "Library"
 BROWSE_VIEWS = (("Albums", "album"), ("Artists", "artist"), ("Up Next", "queue"))  # under Library
@@ -181,8 +181,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.sort_dropdown = Gtk.DropDown.new_from_strings(list(SORT_KEYS) + list(STATS_SORTS))
         self.sort_dropdown.set_tooltip_text("Sort library by")
         self.sort_dropdown.connect("notify::selected", self._on_sort_changed)
+        self.filter_dropdown = Gtk.DropDown.new_from_strings(list(FILTERS))
+        self.filter_dropdown.set_tooltip_text("Show only tracks matching")
+        self.filter_dropdown.connect("notify::selected", self._on_filter_changed)
         search_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         search_row.append(self.search)
+        search_row.append(self.filter_dropdown)
         search_row.append(self.sort_dropdown)
         main.append(search_row)
 
@@ -304,7 +308,17 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_sort_changed(self, *_args) -> None:
         self.populate_track_list()
 
+    def _filter_choice(self) -> str:
+        item = self.filter_dropdown.get_selected_item()
+        return item.get_string() if item is not None else "All tracks"
+
+    def _on_filter_changed(self, *_args) -> None:
+        self.populate_track_list()
+
     def _view_tracks(self) -> list[Track]:
+        return filter_by_stats(self._sorted_view_tracks(), self.stats, self._filter_choice())
+
+    def _sorted_view_tracks(self) -> list[Track]:
         if self.current_playlist is None:
             by = self._sort_key()
             if by in STATS_SORTS:

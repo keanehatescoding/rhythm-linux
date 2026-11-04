@@ -52,7 +52,7 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Ratings (0–5 stars) chosen from a dropdown for the selected track. Each track row shows its stars and play count.
 - Play count and last-played time are recorded each time a track starts.
 - Stored in `stats.json` in the data folder, separate from playlists. Store logic is in `rhythm_linux/stats.py` (unit-tested).
-- Sorting by rating and by play count is available in the sort dropdown ("Rating" and "Most played", highest first). Filtering by rating or play count is not yet implemented.
+- Sorting by rating and by play count is available in the sort dropdown ("Rating" and "Most played", highest first).
 
 ## Milestone 10 (done)
 - "Up Next" in the sidebar lists the tracks queued after the current one, in play order.
@@ -88,6 +88,11 @@ A native Linux music library and player. Not affiliated with or derived from App
 - A fade starts when the remaining time is within the crossfade length. Tracks no longer than twice the crossfade length are handed off gaplessly instead.
 - When crossfade is on, the gapless `about-to-finish` hand-off is deferred to the fade for tracks long enough to fade, because playbin fires that signal about one second before the end.
 - Checked headlessly with two 3 s tones and a 1 s fade: volumes moved through the fade (about 1.0/0.0 to 0.3/0.7), `play_file` ran once, and the queue advanced. Gapless with crossfade off still passes.
+
+## Milestone 17 (done)
+- Filter dropdown next to the search box: All tracks, Rated 1+ stars, Rated 3+ stars, Rated 5 stars, Never played. It applies to the library and to playlists, and combines with search and sort.
+- Filter logic is `filter_by_stats` in `stats.py` (unit-tested). Checked headlessly with rated and unrated test files: the filtered list and the visible rows matched.
+- The filter does not re-run when a rating changes, so a track can stay listed until the view is rebuilt.
 
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.

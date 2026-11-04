@@ -1,0 +1,27 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system packages (PyGObject, GTK 4, GStreamer)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-venv python3-gi gir1.2-gtk-4.0 \
+            gir1.2-gstreamer-1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+
+      - name: Create a venv that can see the system packages
+        run: python3 -m venv --system-site-packages .venv
+
+      - name: Install the project and test dependencies
+        run: .venv/bin/pip install -e ".[test]"
+
+      - name: Run the tests
+        run: .venv/bin/python -m pytest -q tests

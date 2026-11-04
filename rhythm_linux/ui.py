@@ -17,6 +17,7 @@ from .player import Player  # noqa: E402
 from .playlists import PlaylistStore  # noqa: E402
 from .queue import REPEAT_ALL, REPEAT_OFF, REPEAT_ONE, PlaybackQueue  # noqa: E402
 from .settings import Settings  # noqa: E402
+from .stats import MAX_RATING, TrackStats  # noqa: E402
 
 LIBRARY_LABEL = "Library"
 BROWSE_VIEWS = (("Albums", "album"), ("Artists", "artist"))  # sidebar entries under Library
@@ -45,12 +46,18 @@ def _label(text: str, dim: bool = False) -> Gtk.Label:
     return label
 
 
-def _row(text: str, sublabel: str = "") -> Gtk.ListBoxRow:
+RATING_LABELS = ["No rating"] + ["★" * n for n in range(1, MAX_RATING + 1)]
+
+
+def _row(text: str, sublabel: str | None = None) -> Gtk.ListBoxRow:
+    """A list row. Pass sublabel=None for no second line; "" keeps an empty second line."""
     row = Gtk.ListBoxRow()
     box = _margins(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2), 6)
     box.append(_label(text))
-    if sublabel:
-        box.append(_label(sublabel, dim=True))
+    row.sub_label = None
+    if sublabel is not None:
+        row.sub_label = _label(sublabel, dim=True)
+        box.append(row.sub_label)
     row.set_child(box)
     return row
 
@@ -67,11 +74,12 @@ def _listbox_rows(listbox: Gtk.ListBox):
 
 class MainWindow(Gtk.ApplicationWindow):
     def __init__(self, app: Gtk.Application, music_dir: Path, store: PlaylistStore,
-                 settings: Settings):
+                 settings: Settings, stats: TrackStats):
         super().__init__(application=app, title="Rhythm", default_width=1000, default_height=640)
         self.music_dir = music_dir
         self.store = store
         self.settings = settings
+        self.stats = stats
         self.tracks: list[Track] = []          # what the library view shows
         self.session_tracks: list[Track] = []  # files dropped in this session
         self._scan_generation = 0
@@ -165,9 +173,14 @@ class MainWindow(Gtk.ApplicationWindow):
                                         sensitive=False)
         self.move_up_btn.connect("clicked", lambda *_: self._on_move(-1))
         self.move_down_btn.connect("clicked", lambda *_: self._on_move(1))
+        self.rating_dropdown = Gtk.DropDown.new_from_strings(RATING_LABELS)
+        self.rating_dropdown.set_tooltip_text("Rate the selected track")
+        self.rating_dropdown.set_sensitive(False)
+        self._syncing_rating = False  # True while we set the dropdown from code
+        self.rating_dropdown.connect("notify::selected", self._on_rating_chosen)
         self.track_list.connect("row-selected", lambda *_: self._update_playlist_controls())
         for widget in (self.target_dropdown, self.add_to_btn, self.remove_btn,
-                       self.move_up_btn, self.move_down_btn):
+                       self.move_up_btn, self.move_down_btn, self.rating_dropdown):
             actions.append(widget)
         main.append(actions)
         paned.set_end_child(main)
@@ -292,6 +305,40 @@ class MainWindow(Gtk.ApplicationWindow):
         self.remove_btn.set_sensitive(has_sel)
         self.move_up_btn.set_sensitive(has_sel and index > 0)
         self.move_down_btn.set_sensitive(has_sel and index < count - 1)
+        self._sync_rating_control()
+
+    def _sync_rating_control(self) -> None:
+        track = self._selected_track()
+        self._syncing_rating = True
+        self.rating_dropdown.set_sensitive(track is not None)
+        self.rating_dropdown.set_selected(self.stats.rating(track.path) if track else 0)
+        self._syncing_rating = False
+
+    def _on_rating_chosen(self, *_args) -> None:
+        if self._syncing_rating:
+            return
+        track = self._selected_track()
+        stars = self.rating_dropdown.get_selected()
+        if track is None or stars > MAX_RATING:  # an invalid position means no choice
+            return
+        self.stats.set_rating(track.path, stars)
+        self._refresh_row_summary(track.path)
+
+    def _track_summary(self, track: Track) -> str:
+        parts = [track.album] if track.album else []
+        rating = self.stats.rating(track.path)
+        if rating:
+            parts.append("★" * rating + "☆" * (MAX_RATING - rating))
+        plays = self.stats.plays(track.path)
+        if plays:
+            parts.append(f"{plays} play" + ("" if plays == 1 else "s"))
+        return " · ".join(parts)
+
+    def _refresh_row_summary(self, track_path: str) -> None:
+        for row in _listbox_rows(self.track_list):
+            track = getattr(row, "track", None)
+            if track is not None and track.path == track_path and row.sub_label is not None:
+                row.sub_label.set_label(self._track_summary(track))
 
     def _on_move(self, delta: int) -> None:
         row = self.track_list.get_selected_row()
@@ -306,7 +353,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if generation != self._populate_generation:
             return False  # a newer list has been requested
         for track in tracks[start:start + self.ROW_BATCH]:
-            row = _row(track.display_text, track.album)
+            row = _row(track.display_text, self._track_summary(track))
             row.track = track
             self.track_list.append(row)
         self.track_list.invalidate_filter()
@@ -444,6 +491,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.now_playing.set_label(track.display_text)
         self._show_art(track.path)
         self.play_btn.set_icon_name(PAUSE_ICON)
+        self.stats.record_play(track.path)
+        self._refresh_row_summary(track.path)
 
     def _show_art(self, path: str) -> None:
         data = read_cover(path)
@@ -629,7 +678,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
 
 class RhythmApp(Gtk.Application):
-    def __init__(self, music_dir: Path | None, store_path: Path, settings_path: Path):
+    def __init__(self, music_dir: Path | None, store_path: Path, settings_path: Path,
+                 stats_path: Path):
         super().__init__(application_id="local.rhythm.Linux",
                          flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
         self.settings = Settings(settings_path)
@@ -637,7 +687,9 @@ class RhythmApp(Gtk.Application):
         self.music_dir = music_dir or Path(self.settings.music_dir or Path.home() / "Music")
         self.store = PlaylistStore(store_path)
         self.store.load()
+        self.stats = TrackStats(stats_path)
+        self.stats.load()
         self.connect("activate", self._on_activate)
 
     def _on_activate(self, app: Gtk.Application) -> None:
-        MainWindow(app, self.music_dir, self.store, self.settings).present()
+        MainWindow(app, self.music_dir, self.store, self.settings, self.stats).present()

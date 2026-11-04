@@ -18,7 +18,8 @@ def main(argv=None):
     music_dir = args.music_dir.expanduser() if args.music_dir else None
     app = RhythmApp(music_dir=music_dir,
                     store_path=data_dir / "playlists.json",
-                    settings_path=config_dir / "settings.json")
+                    settings_path=config_dir / "settings.json",
+                    stats_path=data_dir / "stats.json")
     return app.run(None)
 
 

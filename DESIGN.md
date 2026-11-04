@@ -48,6 +48,12 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Grouping lives in `library.group_tracks` (unit-tested). Blank album or artist values are grouped as "Unknown".
 - Search filters group names in these views.
 
+## Milestone 9 (done)
+- Ratings (0–5 stars) chosen from a dropdown for the selected track. Each track row shows its stars and play count.
+- Play count and last-played time are recorded each time a track starts.
+- Stored in `stats.json` in the data folder, separate from playlists. Store logic is in `rhythm_linux/stats.py` (unit-tested).
+- Not yet: sorting or filtering by rating or play count.
+
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.
 

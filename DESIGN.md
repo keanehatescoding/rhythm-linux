@@ -57,6 +57,7 @@ A native Linux music library and player. Not affiliated with or derived from App
 ## Milestone 10 (done)
 - "Up Next" in the sidebar lists the tracks queued after the current one, in play order.
 - Activating a row in Up Next jumps to that track and keeps the rest of the queue.
+- With Up Next selected, the Remove and Move up/down buttons remove or reorder queued tracks. Removed tracks stay out of the queue on repeat-all wraps.
 - Queue logic is `PlaybackQueue.upcoming()` and `jump()` (unit-tested). Up Next refreshes when the track changes.
 - Not yet: reordering or removing queued tracks.
 

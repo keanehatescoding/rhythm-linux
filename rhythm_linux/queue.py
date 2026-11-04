@@ -79,6 +79,32 @@ class PlaybackQueue:
         """Tracks after the current one, in play order. Does not include repeat-all wraps."""
         return self._order[self._pos + 1:] if self._order else []
 
+    def remove_upcoming(self, offset: int) -> bool:
+        """Drop the upcoming track `offset` places after the current one. Returns False if out of range."""
+        index = self._pos + 1 + offset
+        if not (self._pos + 1 <= index < len(self._order)):
+            return False
+        track = self._order.pop(index)
+        self._drop_original(track)
+        return True
+
+    def move_upcoming(self, offset: int, delta: int) -> bool:
+        """Swap the upcoming track at `offset` with its neighbour `delta` (-1 or 1) places away."""
+        index = self._pos + 1 + offset
+        other = index + delta
+        if not (self._pos + 1 <= index < len(self._order) and self._pos + 1 <= other < len(self._order)):
+            return False
+        self._order[index], self._order[other] = self._order[other], self._order[index]
+        if not self.shuffle:
+            self._original = list(self._order)  # unshuffled, play order is the view order
+        return True
+
+    def _drop_original(self, track: Track) -> None:
+        for i, t in enumerate(self._original):
+            if t is track:
+                del self._original[i]
+                return
+
     def jump(self, offset: int) -> Optional[Track]:
         """Make the track `offset` places after the current one current (0 is the next track)."""
         target = self._pos + 1 + offset

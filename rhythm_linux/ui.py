@@ -304,6 +304,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _update_playlist_controls(self) -> None:
         row = self.track_list.get_selected_row()
+        if self.browse_by == "queue":
+            self._update_queue_controls(row)
+            self._sync_rating_control()
+            return
+        self.remove_btn.set_label("Remove from this playlist")
+        self.move_up_btn.set_tooltip_text("Move up in playlist")
+        self.move_down_btn.set_tooltip_text("Move down in playlist")
         in_playlist = self.current_playlist is not None
         has_sel = in_playlist and row is not None
         count = len(self.store.tracks(self.current_playlist)) if in_playlist else 0
@@ -312,6 +319,17 @@ class MainWindow(Gtk.ApplicationWindow):
         self.move_up_btn.set_sensitive(has_sel and index > 0)
         self.move_down_btn.set_sensitive(has_sel and index < count - 1)
         self._sync_rating_control()
+
+    def _update_queue_controls(self, row) -> None:
+        """Remove and Move buttons act on Up Next while that view is open."""
+        offset = getattr(row, "queue_offset", None) if row is not None else None
+        count = len(self.queue.upcoming())
+        self.remove_btn.set_label("Remove from Up Next")
+        self.move_up_btn.set_tooltip_text("Move up in Up Next")
+        self.move_down_btn.set_tooltip_text("Move down in Up Next")
+        self.remove_btn.set_sensitive(offset is not None)
+        self.move_up_btn.set_sensitive(offset is not None and offset > 0)
+        self.move_down_btn.set_sensitive(offset is not None and offset < count - 1)
 
     def _sync_rating_control(self) -> None:
         track = self._selected_track()
@@ -348,7 +366,15 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_move(self, delta: int) -> None:
         row = self.track_list.get_selected_row()
-        if row is None or self.current_playlist is None:
+        if row is None:
+            return
+        if self.browse_by == "queue":
+            offset = getattr(row, "queue_offset", None)
+            if offset is not None and self.queue.move_upcoming(offset, delta):
+                self._pending_select = offset + delta  # Up Next rows start at offset 0
+                self.populate_track_list()
+            return
+        if self.current_playlist is None:
             return
         self._pending_select = self.store.move_track(self.current_playlist, row.get_index(), delta)
         self.populate_track_list()
@@ -473,7 +499,14 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _on_remove_from_playlist(self, _btn) -> None:
         row = self.track_list.get_selected_row()
-        if row is None or self.current_playlist is None:
+        if row is None:
+            return
+        if self.browse_by == "queue":
+            offset = getattr(row, "queue_offset", None)
+            if offset is not None and self.queue.remove_upcoming(offset):
+                self.populate_track_list()
+            return
+        if self.current_playlist is None:
             return
         self.store.remove_track(self.current_playlist, row.get_index())
         self.populate_track_list()

@@ -30,6 +30,7 @@ LIBRARY_LABEL = "Library"
 BROWSE_VIEWS = (("Albums", "album"), ("Artists", "artist"), ("Up Next", "queue"))  # under Library
 IPHONE_LABEL = "iPhone (read-only)"
 IPHONE_BROWSE = "iphone"
+SEARCH_DELAY_MS = 250  # wait this long after typing stops before filtering the library
 PLAY_ICON = "media-playback-start-symbolic"
 PAUSE_ICON = "media-playback-pause-symbolic"
 
@@ -202,7 +203,8 @@ class MainWindow(Gtk.ApplicationWindow):
         main = _margins(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6), 6)
         self.search = Gtk.Entry(placeholder_text="Search title, artist, album",
                                 primary_icon_name="system-search-symbolic", hexpand=True)
-        self.search.connect("changed", lambda *_: self.track_list.invalidate_filter())
+        self._search_timer = 0
+        self.search.connect("changed", self._on_search_changed)
         self.sort_dropdown = Gtk.DropDown.new_from_strings(list(SORT_KEYS) + list(STATS_SORTS))
         self.sort_dropdown.set_tooltip_text("Sort library by")
         self.sort_dropdown.connect("notify::selected", self._on_sort_changed)
@@ -598,6 +600,18 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _matches_search(self, track: Track) -> bool:
         return self._query_matches(track.search_text)
+
+    def _on_search_changed(self, _entry) -> None:
+        # Re-filtering hides and shows every row widget, which freezes the window for a
+        # moment on a large library. Wait until typing pauses so that happens once.
+        if self._search_timer:
+            GLib.source_remove(self._search_timer)
+        self._search_timer = GLib.timeout_add(SEARCH_DELAY_MS, self._apply_search)
+
+    def _apply_search(self) -> bool:
+        self._search_timer = 0
+        self.track_list.invalidate_filter()
+        return False
 
     def _filter_row(self, row: Gtk.ListBoxRow) -> bool:
         if hasattr(row, "track"):

@@ -97,6 +97,17 @@ def visible_names(win) -> list[str]:
     return names
 
 
+def displayed_names(win) -> list[str]:
+    """Rows GTK is actually showing (after the list's own filter has run)."""
+    names = []
+    row = win.track_list.get_first_child()
+    while row is not None:
+        if hasattr(row, "track") and row.get_child_visible():
+            names.append(Path(row.track.path).name)
+        row = row.get_next_sibling()
+    return names
+
+
 def test_library_lists_every_track_in_the_music_folder(app):
     win = app.get_active_window()
     pump_until(lambda: len(visible_names(win)) == 3)
@@ -109,7 +120,7 @@ def test_search_leaves_only_matching_tracks(app):
     pump_until(lambda: len(visible_names(win)) == 3)
 
     win.search.set_text("beta")
-    pump(0.3)
+    pump_until(lambda: displayed_names(win) == ["beta.wav"])
 
     assert visible_names(win) == ["beta.wav"]
 
@@ -130,7 +141,7 @@ def test_export_shown_copies_only_the_searched_tracks(app, music, tmp_path):
     win = app.get_active_window()
     pump_until(lambda: len(visible_names(win)) == 3)
     win.search.set_text("gamma")
-    pump(0.3)
+    pump_until(lambda: displayed_names(win) == ["gamma.wav"])
     dest = tmp_path / "exported"
     dest.mkdir()
 

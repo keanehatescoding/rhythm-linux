@@ -18,6 +18,7 @@ from .playlists import PlaylistStore  # noqa: E402
 from .equalizer import PRESET_NAMES, gains_for  # noqa: E402
 from . import iphone  # noqa: E402
 from .export import copy_tracks  # noqa: E402
+from . import phone_send  # noqa: E402
 
 CROSSFADE_OPTIONS = [(0, "Crossfade off"), (3, "Crossfade 3 s"), (6, "Crossfade 6 s"), (10, "Crossfade 10 s")]
 from .queue import REPEAT_ALL, REPEAT_OFF, REPEAT_ONE, PlaybackQueue  # noqa: E402
@@ -240,10 +241,13 @@ class MainWindow(Gtk.ApplicationWindow):
         self.export_shown_btn = Gtk.Button(label="Export shown to folder…",
                                            tooltip_text="Copy the tracks in this list (after search and filter)")
         self.export_shown_btn.connect("clicked", self._on_export_shown)
+        self.send_shown_btn = Gtk.Button(label="Send shown to phone",
+                                         tooltip_text="Send the tracks in this list to the paired phone with KDE Connect")
+        self.send_shown_btn.connect("clicked", self._on_send_shown)
         self.track_list.connect("row-selected", lambda *_: self._update_playlist_controls())
         for widget in (self.target_dropdown, self.add_to_btn, self.remove_btn,
                        self.move_up_btn, self.move_down_btn, self.rating_dropdown,
-                       self.export_shown_btn):
+                       self.export_shown_btn, self.send_shown_btn):
             actions.append(widget)
         main.append(actions)
         paned.set_end_child(main)
@@ -649,6 +653,39 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         dialog = Gtk.FileDialog(title="Export to folder")
         dialog.select_folder(self, None, lambda d, r: self._on_export_folder_chosen(d, r, paths))
+
+    def _on_send_shown(self, _btn) -> None:
+        paths = self._shown_track_paths()
+        if not paths:
+            self.status.set_label("Nothing to send in this list")
+            return
+        self.status.set_label("Looking for a paired phone…")
+        threading.Thread(target=self._send_worker, args=(paths,), daemon=True).start()
+
+    def _send_worker(self, paths: list[Path]) -> None:
+        # Off the main thread: runs kdeconnect-cli, touches no widgets.
+        try:
+            ids = phone_send.paired_device_ids()
+        except Exception as exc:
+            GLib.idle_add(self._send_finished, None, f"KDE Connect error: {exc}")
+            return
+        if not ids:
+            GLib.idle_add(self._send_finished, None, "No paired phone. Pair it in KDE Connect first.")
+            return
+        result = phone_send.send_files(ids[0], paths)
+        GLib.idle_add(self._send_finished, result, None)
+
+    def _send_finished(self, result, error) -> bool:
+        if error is not None:
+            self.status.set_label(error)
+            return False
+        total = len(result.sent) + len(result.failed)
+        message = f"Sent {len(result.sent)} of {total} to phone"
+        if result.failed:
+            source, reason = result.failed[0]
+            message += f"; {len(result.failed)} failed (e.g. {source.name}: {reason})"
+        self.status.set_label(message)
+        return False
 
     def _on_export_folder_chosen(self, dialog: Gtk.FileDialog, result, paths: list[Path]) -> None:
         try:

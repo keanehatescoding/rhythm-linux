@@ -97,7 +97,13 @@ A native Linux music library and player. Not affiliated with or derived from App
 ## Milestone 18 (done)
 - "Export shown to folder…" copies the tracks in the current list (after search and filter) into a folder you choose. It works for the library, playlists, Up Next and the iPhone view. Group views (Albums, Artists) have no files to export.
 - Copies keep their file names and never overwrite: a clash becomes `name (2).ext`. Copying runs on a worker thread; the status line reports how many copied and any failures. Logic is `rhythm_linux/export.py` (unit-tested). Checked headlessly: search narrowed the list to two tracks and exactly those two were copied.
-- This is the Linux-side step for getting music to the phone. Copying into a phone app is not built yet; it needs the app chosen first.
+- This is the Linux-side step for getting music to the phone.
+
+## Milestone 19 (done)
+- "Send shown to phone" sends the tracks in the current list to the first paired phone, using KDE Connect (`kdeconnect-cli --share`, one file at a time). Logic is `rhythm_linux/phone_send.py` (unit-tested with a stubbed `kdeconnect-cli`).
+- Files arrive in the folder KDE Connect saves to on the phone, not in Apple Music. Checked on a real phone: a 10 MB FLAC was received and plays.
+- Sending runs on a worker thread. The status line reports how many were sent and any failure, including "No paired phone" when nothing is paired.
+- Only the sending direction is built. Nothing is read from the phone's storage.
 
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.

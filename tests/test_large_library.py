@@ -27,6 +27,8 @@ from gi.repository import GLib, Gtk
 if not Gtk.init_check():
     raise SystemExit("GTK could not open the display")
 
+from rhythm_linux.library import SORT_KEYS, read_track
+from rhythm_linux.stats import STATS_SORTS
 from rhythm_linux.ui import RhythmApp
 
 COUNT = int(sys.argv[1])
@@ -82,6 +84,19 @@ win.search.set_text("")
 result["clear_ok"] = pump_until(lambda: shown() == COUNT, 60)
 result["clear_shown"] = shown()
 
+longest = 0.0
+names = list(SORT_KEYS) + list(STATS_SORTS)
+win.sort_dropdown.set_selected(names.index("Album"))
+pump_until(lambda: False, 1.0)  # let the sort run and any work it starts finish
+result["sort_shown"] = shown()
+result["sort_longest_pause"] = longest
+
+longest = 0.0
+track = read_track(root / "Artist 00" / "Album" / "track00000.wav")
+win._play_track(track)
+result["play_ok"] = pump_until(lambda: win.player.has_media, 10)
+result["play_longest_pause"] = longest
+
 print("RESULT " + json.dumps(result), flush=True)
 app.quit()
 '''
@@ -97,6 +112,10 @@ def test_five_thousand_tracks_scan_and_search():
     assert result["scan_ok"], "not every track was shown after the scan"
     assert result["search_ok"] and result["search_shown"] == 1
     assert result["clear_ok"] and result["clear_shown"] == COUNT
+    assert result["sort_shown"] == COUNT
+    assert result["play_ok"], "playback did not start"
+    assert result["sort_longest_pause"] < 1.0
+    assert result["play_longest_pause"] < 1.0
     # Generous limit: the measured longest pause is about 80 ms, so this only catches a real freeze.
     assert result["search_longest_pause"] < 1.0
     assert result["scan_longest_pause"] < 1.0

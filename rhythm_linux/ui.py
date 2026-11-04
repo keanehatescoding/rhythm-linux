@@ -16,6 +16,8 @@ from .library import (AUDIO_EXTENSIONS, SORT_KEYS, Track, group_tracks, merge_tr
 from .player import Player  # noqa: E402
 from .playlists import PlaylistStore  # noqa: E402
 from .equalizer import PRESET_NAMES, gains_for  # noqa: E402
+
+CROSSFADE_OPTIONS = [(0, "Crossfade off"), (3, "Crossfade 3 s"), (6, "Crossfade 6 s"), (10, "Crossfade 10 s")]
 from .queue import REPEAT_ALL, REPEAT_OFF, REPEAT_ONE, PlaybackQueue  # noqa: E402
 from .settings import Settings  # noqa: E402
 from .stats import MAX_RATING, STATS_SORTS, TrackStats, sort_by_stats  # noqa: E402
@@ -102,6 +104,12 @@ class MainWindow(Gtk.ApplicationWindow):
                                       if self.settings.equalizer in PRESET_NAMES else 0)
         self.eq_dropdown.connect("notify::selected", self._on_eq_chosen)
         header.pack_end(self.eq_dropdown)
+        # Crossfade is also global, so it sits in the header bar next to the equalizer.
+        self.fade_dropdown = Gtk.DropDown.new_from_strings([label for _secs, label in CROSSFADE_OPTIONS])
+        self.fade_dropdown.set_tooltip_text("Crossfade between tracks")
+        self.fade_dropdown.set_selected(self._crossfade_index(self.settings.crossfade))
+        self.fade_dropdown.connect("notify::selected", self._on_fade_chosen)
+        header.pack_end(self.fade_dropdown)
         self.set_titlebar(header)
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -112,7 +120,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.connect("close-request", self._on_close)
         self.player.set_volume(self.settings.volume)
         self.player.set_equalizer(gains_for(self.settings.equalizer))
-        drop = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
+        self.player.set_crossfade(self.settings.crossfade)
+        drop =Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
         drop.connect("drop", self._on_drop)
         self.add_controller(drop)
         GLib.timeout_add(500, self._tick)
@@ -679,6 +688,21 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _play_previous(self) -> None:
         self._play_track(self.queue.previous())
+
+    @staticmethod
+    def _crossfade_index(seconds: float) -> int:
+        for i, (secs, _label) in enumerate(CROSSFADE_OPTIONS):
+            if secs == seconds:
+                return i
+        return 0
+
+    def _on_fade_chosen(self, *_args) -> None:
+        index = self.fade_dropdown.get_selected()
+        if index >= len(CROSSFADE_OPTIONS):
+            return
+        seconds = CROSSFADE_OPTIONS[index][0]
+        self.settings.crossfade = seconds
+        self.player.set_crossfade(seconds)
 
     def _on_eq_chosen(self, *_args) -> None:
         index = self.eq_dropdown.get_selected()

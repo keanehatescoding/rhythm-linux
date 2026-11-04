@@ -74,6 +74,17 @@ class Settings:
         self.save()
 
     @property
+    def crossfade(self) -> float:
+        """Seconds of overlap between tracks. 0 means off."""
+        value = self._data.get("crossfade", 0)
+        return min(max(float(value), 0.0), 12.0) if isinstance(value, (int, float)) else 0.0
+
+    @crossfade.setter
+    def crossfade(self, seconds: float) -> None:
+        self._data["crossfade"] = min(max(float(seconds), 0.0), 12.0)
+        self.save()
+
+    @property
     def extra_files(self) -> list[str]:
         value = self._data.get("extra_files", [])
         return [str(p) for p in value] if isinstance(value, list) else []

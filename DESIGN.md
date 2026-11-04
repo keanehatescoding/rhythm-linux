@@ -82,6 +82,13 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Ten-band GStreamer `equalizer-10bands` is set as the playbin audio filter. If the element is missing, playback still works and the dropdown reports that the equalizer is unavailable.
 - Preset values are in `rhythm_linux/equalizer.py` (unit-tested). Checked headlessly: saved preset applied at startup, dropdown change applied and saved, playback continued.
 
+## Milestone 16 (done)
+- Crossfade: a header bar dropdown with Off, 3 s, 6 s and 10 s. The choice is saved in `settings.json` (`crossfade`, seconds, clamped to 0–12).
+- The player has two playbins. During a fade, the next track starts in the idle one while the current one fades out (`crossfade_levels` in `player.py`, unit-tested). Each bin has its own equalizer and mute state, so the equalizer and mute stay correct during the overlap.
+- A fade starts when the remaining time is within the crossfade length. Tracks no longer than twice the crossfade length are handed off gaplessly instead.
+- When crossfade is on, the gapless `about-to-finish` hand-off is deferred to the fade for tracks long enough to fade, because playbin fires that signal about one second before the end.
+- Checked headlessly with two 3 s tones and a 1 s fade: volumes moved through the fade (about 1.0/0.0 to 0.3/0.7), `play_file` ran once, and the queue advanced. Gapless with crossfade off still passes.
+
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.
 

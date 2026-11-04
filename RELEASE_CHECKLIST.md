@@ -19,7 +19,7 @@ Status as of `a69c37c` on `master`. Items marked **open** are not done.
 ## 3. Testing
 - [x] Unit tests pass (86 as of this commit)
 - [~] Tests run in CI on every push: `.github/workflows/tests.yml` is written and its steps pass in a fresh clone here. Not yet run on GitHub because the repo has no remote.
-- [ ] **open** GUI tests: the headless scripts in the scratchpad become real tests, or are replaced by a test harness
+- [x] GUI tests: `tests/test_gui.py` covers the library list, search, the rating filter and export of shown tracks, using generated WAV files. It runs under `xvfb-run` and is skipped with no display. CI runs it under Xvfb (workflow not yet run on GitHub).
 - [ ] **open** Large library: at least 5,000 tracks scanned, sorted, filtered and played without freezing the window
 - [ ] **open** Formats: MP3, AAC/M4A, FLAC, WAV, ALAC, AIFF checked for tags, cover art and playback
 - [ ] **open** Long session: a few hours of play, shuffle and repeat, with no growth in memory or errors in the log

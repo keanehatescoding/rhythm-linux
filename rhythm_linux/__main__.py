@@ -5,6 +5,7 @@ from pathlib import Path
 from gi.repository import GLib
 
 from . import __version__
+from .logsetup import setup_logging
 from .ui import RhythmApp
 
 
@@ -17,6 +18,7 @@ def main(argv=None):
 
     data_dir = Path(GLib.get_user_data_dir()) / "rhythm-linux"
     config_dir = Path(GLib.get_user_config_dir()) / "rhythm-linux"
+    setup_logging(data_dir)
     music_dir = args.music_dir.expanduser() if args.music_dir else None
     app = RhythmApp(music_dir=music_dir,
                     store_path=data_dir / "playlists.json",

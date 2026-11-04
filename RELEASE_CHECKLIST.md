@@ -26,7 +26,7 @@ Status as of `a69c37c` on `master`. Items marked **open** are not done.
 
 ## 4. Reliability
 - [ ] **open** Review the broad `except Exception` catches (in `ui.py` and `iphone.py`) and narrow each to the errors it expects, logging the rest
-- [ ] **open** Logging: a log file in the data folder, with errors recorded (not just printed)
+- [x] Logging: warnings and errors go to `rhythm-linux.log` in the data folder (rotated at 1 MB, 3 kept) and to stderr; the app still starts if the folder cannot be written (`tests/test_logsetup.py`)
 - [ ] **open** Crash test: kill the app during playback and during a scan; check that settings, playlists and stats files are intact
 - [x] Corrupt-data test: damaged `settings.json`, `playlists.json` and `stats.json` are moved to `.json.bak` and the app starts with defaults (`tests/test_corrupt_data.py`)
 

@@ -146,6 +146,14 @@ class MainWindow(Gtk.ApplicationWindow):
         self.delete_playlist_btn = Gtk.Button(label="Delete playlist", sensitive=False)
         self.delete_playlist_btn.connect("clicked", self._on_delete_playlist)
         side.append(self.delete_playlist_btn)
+
+        self.export_playlist_btn = Gtk.Button(label="Export playlist…", sensitive=False)
+        self.export_playlist_btn.connect("clicked", self._on_export_playlist)
+        side.append(self.export_playlist_btn)
+
+        import_playlist_btn = Gtk.Button(label="Import playlist…")
+        import_playlist_btn.connect("clicked", self._on_import_playlist)
+        side.append(import_playlist_btn)
         paned.set_start_child(side)
 
         main = _margins(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6), 6)
@@ -289,6 +297,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_list.remove_all()
         self.delete_playlist_btn.set_sensitive(self.current_playlist is not None)
         self.rename_playlist_entry.set_sensitive(self.current_playlist is not None)
+        self.export_playlist_btn.set_sensitive(self.current_playlist is not None)
         if self.browse_by == "queue":
             self._append_rows(self._populate_generation, self.queue.upcoming(), 0, queue_mode=True)
             return
@@ -494,6 +503,48 @@ class MainWindow(Gtk.ApplicationWindow):
         self.current_playlist = new_name
         self.refresh_playlists()
         self.populate_track_list()
+
+    def _on_export_playlist(self, _btn) -> None:
+        name = self.current_playlist
+        if name is None:
+            return
+        dialog = Gtk.FileDialog(title="Export playlist")
+        dialog.set_initial_name(f"{name}.m3u")
+        dialog.save(self, None, lambda d, r: self._on_export_chosen(d, r, name))
+
+    def _on_export_chosen(self, dialog: Gtk.FileDialog, result, name: str) -> None:
+        try:
+            target = dialog.save_finish(result)
+        except GLib.Error:
+            return  # cancelled
+        try:
+            self.store.export_m3u(name, target.get_path())
+        except OSError as exc:
+            self.status.set_label(f"Could not export {name}: {exc.strerror or exc}")
+            return
+        self.status.set_label(f"Exported {name}")
+
+    def _on_import_playlist(self, _btn) -> None:
+        dialog = Gtk.FileDialog(title="Import playlist")
+        dialog.open(self, None, self._on_import_chosen)
+
+    def _on_import_chosen(self, dialog: Gtk.FileDialog, result) -> None:
+        try:
+            source = dialog.open_finish(result)
+        except GLib.Error:
+            return  # cancelled
+        path = Path(source.get_path())
+        name = path.stem.strip()
+        try:
+            skipped = self.store.import_m3u(path, name)
+        except (ValueError, OSError) as exc:
+            self.status.set_label(str(exc))
+            return
+        self.current_playlist = name
+        self.refresh_playlists()
+        self.populate_track_list()
+        note = f" ({skipped} missing file(s) skipped)" if skipped else ""
+        self.status.set_label(f"Imported {name}{note}")
 
     def _on_delete_playlist(self, _btn) -> None:
         if self.current_playlist is None:

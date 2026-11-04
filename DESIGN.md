@@ -64,6 +64,10 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Playlists can be renamed. Select a playlist, type the new name in the "Rename selected playlist" field, and press Enter. Duplicate or empty names are refused with a message.
 - Rename keeps the playlist's tracks and its place in the file (`PlaylistStore.rename`, unit-tested).
 
+## Milestone 12 (done)
+- Playlists can be exported to M3U (`#EXTM3U` with absolute paths) and imported from M3U. M3U is a plain-text open format.
+- Import resolves relative entries against the file's folder, skips files that are missing, and reports how many were skipped. Store logic is `PlaylistStore.export_m3u` and `import_m3u` (unit-tested).
+
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.
 

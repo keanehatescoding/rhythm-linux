@@ -73,6 +73,38 @@ class PlaylistStore:
         del self._playlists[name][index]
         self.save()
 
+    def export_m3u(self, name: str, dest: str | os.PathLike) -> None:
+        """Write a playlist as a plain M3U file with absolute paths."""
+        lines = ["#EXTM3U"] + self._playlists[name]
+        Path(dest).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def import_m3u(self, src: str | os.PathLike, name: str | None = None) -> int:
+        """Create a playlist from an M3U file. Relative entries are resolved against the file's folder.
+
+        Entries whose files do not exist are skipped. Returns how many were skipped.
+        """
+        src = Path(src)
+        name = (name or src.stem).strip()
+        if not name:
+            raise ValueError("playlist name is empty")
+        if name in self._playlists:
+            raise ValueError(f"playlist {name!r} already exists")
+        tracks, skipped = [], 0
+        for raw in src.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            path = Path(line)
+            if not path.is_absolute():
+                path = src.parent / path
+            if path.is_file():
+                tracks.append(str(path))
+            else:
+                skipped += 1
+        self._playlists[name] = tracks
+        self.save()
+        return skipped
+
     def move_track(self, name: str, index: int, delta: int) -> int:
         """Move one entry up (delta=-1) or down (delta=+1). Returns the entry's new index."""
         items = self._playlists[name]

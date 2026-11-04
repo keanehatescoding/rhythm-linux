@@ -15,6 +15,7 @@ from .library import (AUDIO_EXTENSIONS, SORT_KEYS, Track, group_tracks, merge_tr
                       read_cover, read_track, scan_folder, sort_tracks)
 from .player import Player  # noqa: E402
 from .playlists import PlaylistStore  # noqa: E402
+from .equalizer import PRESET_NAMES, gains_for  # noqa: E402
 from .queue import REPEAT_ALL, REPEAT_OFF, REPEAT_ONE, PlaybackQueue  # noqa: E402
 from .settings import Settings  # noqa: E402
 from .stats import MAX_RATING, STATS_SORTS, TrackStats, sort_by_stats  # noqa: E402
@@ -94,6 +95,13 @@ class MainWindow(Gtk.ApplicationWindow):
         open_btn = Gtk.Button(icon_name="folder-open-symbolic", tooltip_text="Choose music folder")
         open_btn.connect("clicked", self._choose_folder)
         header.pack_start(open_btn)
+        # The equalizer is a global setting, so it lives in the header bar rather than the crowded footer.
+        self.eq_dropdown = Gtk.DropDown.new_from_strings(list(PRESET_NAMES))
+        self.eq_dropdown.set_tooltip_text("Equalizer preset")
+        self.eq_dropdown.set_selected(PRESET_NAMES.index(self.settings.equalizer)
+                                      if self.settings.equalizer in PRESET_NAMES else 0)
+        self.eq_dropdown.connect("notify::selected", self._on_eq_chosen)
+        header.pack_end(self.eq_dropdown)
         self.set_titlebar(header)
 
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -103,6 +111,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.connect("close-request", self._on_close)
         self.player.set_volume(self.settings.volume)
+        self.player.set_equalizer(gains_for(self.settings.equalizer))
         drop = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
         drop.connect("drop", self._on_drop)
         self.add_controller(drop)
@@ -670,6 +679,15 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _play_previous(self) -> None:
         self._play_track(self.queue.previous())
+
+    def _on_eq_chosen(self, *_args) -> None:
+        index = self.eq_dropdown.get_selected()
+        if index >= len(PRESET_NAMES):
+            return
+        name = PRESET_NAMES[index]
+        self.settings.equalizer = name
+        if not self.player.set_equalizer(gains_for(name)):
+            self.status.set_label("The equalizer is not available on this system")
 
     def _on_volume_changed(self, scale: Gtk.Scale) -> None:
         level = scale.get_value()

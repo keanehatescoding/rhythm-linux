@@ -64,6 +64,16 @@ class Settings:
         self.save()
 
     @property
+    def equalizer(self) -> str:
+        value = self._data.get("equalizer", "Flat")
+        return value if isinstance(value, str) and value else "Flat"
+
+    @equalizer.setter
+    def equalizer(self, value: str) -> None:
+        self._data["equalizer"] = str(value)
+        self.save()
+
+    @property
     def extra_files(self) -> list[str]:
         value = self._data.get("extra_files", [])
         return [str(p) for p in value] if isinstance(value, list) else []

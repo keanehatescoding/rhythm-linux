@@ -77,6 +77,11 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Repeat-one and the end of the list use the normal end-of-stream path. Changes to the queue, shuffle or repeat re-prepare the next track.
 - Checked headlessly with three real files (MP3, FLAC, M4A): the second and third tracks started without a second `play_file` call, and playback stopped at the end of the queue.
 
+## Milestone 15 (done)
+- Equalizer: a preset dropdown in the header bar with Flat, Bass boost, Treble boost and Vocal. The choice is saved in `settings.json`.
+- Ten-band GStreamer `equalizer-10bands` is set as the playbin audio filter. If the element is missing, playback still works and the dropdown reports that the equalizer is unavailable.
+- Preset values are in `rhythm_linux/equalizer.py` (unit-tested). Checked headlessly: saved preset applied at startup, dropdown change applied and saved, playback continued.
+
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.
 

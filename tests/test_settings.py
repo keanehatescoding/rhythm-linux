@@ -58,3 +58,14 @@ def test_bad_repeat_value_falls_back_to_off(tmp_path):
     s = Settings(path)
     s.load()
     assert s.repeat == "off"
+
+
+def test_equalizer_preset_round_trips(tmp_path):
+    path = tmp_path / "settings.json"
+    s = Settings(path)
+    s.load()
+    assert s.equalizer == "Flat"
+    s.equalizer = "Vocal"
+    again = Settings(path)
+    again.load()
+    assert again.equalizer == "Vocal"

@@ -8,6 +8,8 @@ import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import GLib, Gst  # noqa: E402
 
+from .equalizer import BAND_COUNT, clamp_gains  # noqa: E402
+
 Gst.init(None)
 
 NS_PER_SECOND = 1_000_000_000
@@ -29,6 +31,10 @@ class Player:
         self.state = self.STOPPED  # tracked by us, so it is right immediately after a call
         self.error: Optional[str] = None
         self._playbin.connect("about-to-finish", self._handle_about_to_finish)
+        # Optional: without the equalizer element, playback still works, just unfiltered.
+        self._eq = Gst.ElementFactory.make("equalizer-10bands", "rhythm-eq")
+        if self._eq is not None:
+            self._playbin.set_property("audio-filter", self._eq)
         bus = self._playbin.get_bus()
         bus.add_signal_watch()
         bus.connect("message::eos", self._handle_eos)
@@ -102,6 +108,18 @@ class Player:
     def duration_seconds(self) -> float:
         ok, dur = self._playbin.query_duration(Gst.Format.TIME)
         return dur / NS_PER_SECOND if ok and dur >= 0 else 0.0
+
+    @property
+    def equalizer_available(self) -> bool:
+        return self._eq is not None
+
+    def set_equalizer(self, gains: list[float]) -> bool:
+        """Set the ten band gains in dB. Returns False if the equalizer element is missing."""
+        if self._eq is None:
+            return False
+        for i, gain in enumerate(clamp_gains(gains)[:BAND_COUNT]):
+            self._eq.set_property(f"band{i}", gain)
+        return True
 
     def set_volume(self, value: float) -> None:
         """Volume from 0.0 (silent) to 1.0 (normal level)."""

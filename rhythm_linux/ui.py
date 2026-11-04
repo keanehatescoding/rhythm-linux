@@ -50,6 +50,13 @@ def _margins(widget, n=6):
     return widget
 
 
+def _named(widget, name: str):
+    """Give a control an accessible name. Icon-only buttons and unlabelled drop-downs have no
+    text for a screen reader to read, so they need one set here."""
+    widget.update_property([Gtk.AccessibleProperty.LABEL], [name])
+    return widget
+
+
 def _label(text: str, dim: bool = False) -> Gtk.Label:
     label = Gtk.Label(label=text, xalign=0)
     label.set_ellipsize(Pango.EllipsizeMode.END)
@@ -176,10 +183,12 @@ class MainWindow(Gtk.ApplicationWindow):
         header = Gtk.HeaderBar()
         open_btn = Gtk.Button(icon_name="folder-open-symbolic", tooltip_text="Choose music folder")
         open_btn.connect("clicked", self._choose_folder)
+        _named(open_btn, "Choose music folder")
         header.pack_start(open_btn)
         # The equalizer is a global setting, so it lives in the header bar rather than the crowded footer.
         self.eq_dropdown = Gtk.DropDown.new_from_strings(list(PRESET_NAMES))
         self.eq_dropdown.set_tooltip_text("Equalizer preset")
+        _named(self.eq_dropdown, "Equalizer preset")
         self.eq_dropdown.set_selected(PRESET_NAMES.index(self.settings.equalizer)
                                       if self.settings.equalizer in PRESET_NAMES else 0)
         self.eq_dropdown.connect("notify::selected", self._on_eq_chosen)
@@ -187,6 +196,7 @@ class MainWindow(Gtk.ApplicationWindow):
         # Crossfade is also global, so it sits in the header bar next to the equalizer.
         self.fade_dropdown = Gtk.DropDown.new_from_strings([label for _secs, label in CROSSFADE_OPTIONS])
         self.fade_dropdown.set_tooltip_text("Crossfade between tracks")
+        _named(self.fade_dropdown, "Crossfade between tracks")
         self.fade_dropdown.set_selected(self._crossfade_index(self.settings.crossfade))
         self.fade_dropdown.connect("notify::selected", self._on_fade_chosen)
         header.pack_end(self.fade_dropdown)
@@ -259,11 +269,14 @@ class MainWindow(Gtk.ApplicationWindow):
                                 primary_icon_name="system-search-symbolic", hexpand=True)
         self._search_timer = 0
         self.search.connect("changed", self._on_search_changed)
+        _named(self.search, "Search library")
         self.sort_dropdown = Gtk.DropDown.new_from_strings(list(SORT_KEYS) + list(STATS_SORTS))
         self.sort_dropdown.set_tooltip_text("Sort library by")
+        _named(self.sort_dropdown, "Sort library by")
         self.sort_dropdown.connect("notify::selected", self._on_sort_changed)
         self.filter_dropdown = Gtk.DropDown.new_from_strings(list(FILTERS))
         self.filter_dropdown.set_tooltip_text("Show only tracks matching")
+        _named(self.filter_dropdown, "Show only tracks matching")
         self.filter_dropdown.connect("notify::selected", self._on_filter_changed)
         search_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         search_row.append(self.search)
@@ -288,7 +301,7 @@ class MainWindow(Gtk.ApplicationWindow):
         actions = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=False,
                               column_spacing=6, row_spacing=6,
                               min_children_per_line=1, max_children_per_line=12)
-        self.target_dropdown = Gtk.DropDown(model=Gtk.StringList())
+        self.target_dropdown = _named(Gtk.DropDown(model=Gtk.StringList()), "Playlist to add to")
         self.add_to_btn = Gtk.Button(label="Add selected to playlist")
         self.add_to_btn.connect("clicked", self._on_add_to_playlist)
         self.remove_btn = Gtk.Button(label="Remove from this playlist", sensitive=False)
@@ -298,9 +311,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.move_down_btn = Gtk.Button(icon_name="go-down-symbolic", tooltip_text="Move down in playlist",
                                         sensitive=False)
         self.move_up_btn.connect("clicked", lambda *_: self._on_move(-1))
+        _named(self.move_up_btn, "Move up")
         self.move_down_btn.connect("clicked", lambda *_: self._on_move(1))
+        _named(self.move_down_btn, "Move down")
         self.rating_dropdown = Gtk.DropDown.new_from_strings(RATING_LABELS)
         self.rating_dropdown.set_tooltip_text("Rate the selected track")
+        _named(self.rating_dropdown, "Rate the selected track")
         self.rating_dropdown.set_sensitive(False)
         self._syncing_rating = False  # True while we set the dropdown from code
         self.rating_dropdown.connect("notify::selected", self._on_rating_chosen)
@@ -322,24 +338,26 @@ class MainWindow(Gtk.ApplicationWindow):
     def _build_footer(self) -> Gtk.Box:
         bar = _margins(Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6), 8)
         self.play_btn = Gtk.Button(icon_name=PLAY_ICON, tooltip_text="Play / pause")
+        _named(self.play_btn, "Play or pause")
         buttons = [
-            (Gtk.Button(icon_name="media-skip-backward-symbolic", tooltip_text="Previous"),
+            (_named(Gtk.Button(icon_name="media-skip-backward-symbolic", tooltip_text="Previous"), "Previous"),
              lambda *_: self._play_previous()),
             (self.play_btn, lambda *_: self._toggle_play()),
-            (Gtk.Button(icon_name="media-skip-forward-symbolic", tooltip_text="Next"),
+            (_named(Gtk.Button(icon_name="media-skip-forward-symbolic", tooltip_text="Next"), "Next"),
              lambda *_: self._play_next()),
-            (Gtk.Button(icon_name="media-playback-stop-symbolic", tooltip_text="Stop"),
+            (_named(Gtk.Button(icon_name="media-playback-stop-symbolic", tooltip_text="Stop"), "Stop"),
              lambda *_: self._stop()),
         ]
         for button, handler in buttons:
             button.connect("clicked", handler)
             bar.append(button)
-        self.mute_btn = Gtk.ToggleButton(tooltip_text="Mute")
+        self.mute_btn = _named(Gtk.ToggleButton(tooltip_text="Mute"), "Mute")
         self.mute_btn.connect("toggled", self._on_mute_toggled)
         self.volume_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 0.01)
         self.volume_scale.set_draw_value(False)
         self.volume_scale.set_size_request(120, -1)
         self.volume_scale.set_tooltip_text("Volume")
+        _named(self.volume_scale, "Volume")
         self.volume_scale.set_value(self.settings.volume)
         self.volume_scale.connect("value-changed", self._on_volume_changed)
         bar.append(self.mute_btn)
@@ -348,13 +366,16 @@ class MainWindow(Gtk.ApplicationWindow):
         self.shuffle_btn = Gtk.ToggleButton(icon_name="media-playlist-shuffle-symbolic",
                                             tooltip_text="Shuffle")
         self.shuffle_btn.connect("toggled", self._on_shuffle_toggled)
+        _named(self.shuffle_btn, "Shuffle")
         self.repeat_btn = Gtk.Button()
         self.repeat_btn.connect("clicked", self._on_repeat_clicked)
+        _named(self.repeat_btn, "Repeat")
         bar.append(self.shuffle_btn)
         bar.append(self.repeat_btn)
         self._update_repeat_button()
         self.art = Gtk.Image.new_from_icon_name("audio-x-generic-symbolic")
         self.art.set_pixel_size(48)
+        _named(self.art, "Album art")
         self.now_playing = _label("Not playing")
         self.now_playing.set_hexpand(True)
         bar.append(self.art)
@@ -363,6 +384,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.progress = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 1, 0.001)
         self.progress.set_draw_value(False)
         self.progress.set_hexpand(True)
+        _named(self.progress, "Playback position")
         self.progress.set_sensitive(False)
         self.progress.connect("change-value", self._on_progress_dragged)
         self.time_label = _label("0:00 / 0:00", dim=True)

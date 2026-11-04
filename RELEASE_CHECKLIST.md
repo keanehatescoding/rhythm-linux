@@ -45,7 +45,7 @@ Status as of `a69c37c` on `master`. Items marked **open** are not done.
 
 ## 7. Accessibility and polish
 - [ ] **open** Keyboard-only use of every control (tab order, focus visible)
-- [ ] **open** Screen reader labels on the icon-only buttons
+- [~] **open** Screen reader labels on the icon-only buttons. Every icon-only button, the volume and position sliders, the album art and the unlabelled drop-downs and search entry now have an accessible name (`_named()` in `ui.py`: play or pause, previous, next, stop, mute, volume, shuffle, repeat, move up and down, album art, playback position, search, sort, filter, rating, equalizer, crossfade). The window builds and all 130 tests pass. Not yet checked with a screen reader: the AT-SPI registry did not start on a private session bus here, so the names could not be read back.
 - [ ] **open** Light and dark system themes both readable
 - [ ] **open** The footer progress bar and time readout checked during long tracks (checked once so far)
 

@@ -59,3 +59,39 @@ def test_move_track_up_and_down(tmp_path):
     assert store.move_track("Mix", 0, -1) == 0  # already at the top: no change
     assert store.move_track("Mix", 2, 1) == 2   # already at the bottom: no change
     assert store.tracks("Mix") == ["/m/a.mp3", "/m/c.mp3", "/m/b.mp3"]
+
+
+def test_rename_keeps_tracks_and_position(tmp_path):
+    path = tmp_path / "playlists.json"
+    store = PlaylistStore(path)
+    store.load()
+    store.create("Alpha")
+    store.create("Beta")
+    store.add_track("Beta", "/m/b.mp3")
+    store.rename("Beta", "  Gamma  ")
+
+    reloaded = PlaylistStore(path)
+    reloaded.load()
+    assert reloaded.names() == ["Alpha", "Gamma"]
+    assert reloaded.tracks("Gamma") == ["/m/b.mp3"]
+    assert "Beta" not in reloaded.names()
+
+
+def test_rename_rejects_empty_and_taken_names(tmp_path):
+    store = PlaylistStore(tmp_path / "playlists.json")
+    store.load()
+    store.create("Alpha")
+    store.create("Beta")
+    with pytest.raises(ValueError):
+        store.rename("Beta", "   ")
+    with pytest.raises(ValueError):
+        store.rename("Beta", "Alpha")
+    assert store.names() == ["Alpha", "Beta"]
+
+
+def test_rename_to_same_name_is_a_no_op(tmp_path):
+    store = PlaylistStore(tmp_path / "playlists.json")
+    store.load()
+    store.create("Alpha")
+    store.rename("Alpha", "Alpha")
+    assert store.names() == ["Alpha"]

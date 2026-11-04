@@ -138,6 +138,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self.new_playlist_entry.connect("activate", self._on_new_playlist)
         side.append(self.new_playlist_entry)
 
+        self.rename_playlist_entry = Gtk.Entry(placeholder_text="Rename selected playlist, then Enter",
+                                               sensitive=False)
+        self.rename_playlist_entry.connect("activate", self._on_rename_playlist)
+        side.append(self.rename_playlist_entry)
+
         self.delete_playlist_btn = Gtk.Button(label="Delete playlist", sensitive=False)
         self.delete_playlist_btn.connect("clicked", self._on_delete_playlist)
         side.append(self.delete_playlist_btn)
@@ -283,6 +288,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._populate_generation += 1
         self.track_list.remove_all()
         self.delete_playlist_btn.set_sensitive(self.current_playlist is not None)
+        self.rename_playlist_entry.set_sensitive(self.current_playlist is not None)
         if self.browse_by == "queue":
             self._append_rows(self._populate_generation, self.queue.upcoming(), 0, queue_mode=True)
             return
@@ -472,6 +478,20 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         entry.set_text("")
         self.current_playlist = name
+        self.refresh_playlists()
+        self.populate_track_list()
+
+    def _on_rename_playlist(self, entry: Gtk.Entry) -> None:
+        if self.current_playlist is None:
+            return
+        new_name = entry.get_text().strip()
+        try:
+            self.store.rename(self.current_playlist, new_name)
+        except ValueError as exc:
+            self.status.set_label(str(exc))
+            return
+        entry.set_text("")
+        self.current_playlist = new_name
         self.refresh_playlists()
         self.populate_track_list()
 

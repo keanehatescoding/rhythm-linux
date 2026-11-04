@@ -59,7 +59,10 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Activating a row in Up Next jumps to that track and keeps the rest of the queue.
 - With Up Next selected, the Remove and Move up/down buttons remove or reorder queued tracks. Removed tracks stay out of the queue on repeat-all wraps.
 - Queue logic is `PlaybackQueue.upcoming()` and `jump()` (unit-tested). Up Next refreshes when the track changes.
-- Not yet: reordering or removing queued tracks.
+
+## Milestone 11 (done)
+- Playlists can be renamed. Select a playlist, type the new name in the "Rename selected playlist" field, and press Enter. Duplicate or empty names are refused with a message.
+- Rename keeps the playlist's tracks and its place in the file (`PlaylistStore.rename`, unit-tested).
 
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.

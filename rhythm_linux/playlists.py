@@ -52,6 +52,19 @@ class PlaylistStore:
         del self._playlists[name]
         self.save()
 
+    def rename(self, old: str, new: str) -> None:
+        new = new.strip()
+        if not new:
+            raise ValueError("playlist name is empty")
+        if new == old:
+            return
+        if new in self._playlists:
+            raise ValueError(f"playlist {new!r} already exists")
+        # Rebuild the dict so the playlist keeps its place in the file.
+        self._playlists = {(new if name == old else name): paths
+                           for name, paths in self._playlists.items()}
+        self.save()
+
     def add_track(self, name: str, path: str) -> None:
         self._playlists[name].append(path)
         self.save()

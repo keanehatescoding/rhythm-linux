@@ -92,7 +92,7 @@ A native Linux music library and player. Not affiliated with or derived from App
 ## Milestone 17 (done)
 - Filter dropdown next to the search box: All tracks, Rated 1+ stars, Rated 3+ stars, Rated 5 stars, Never played. It applies to the library and to playlists, and combines with search and sort.
 - Filter logic is `filter_by_stats` in `stats.py` (unit-tested). Checked headlessly with rated and unrated test files: the filtered list and the visible rows matched.
-- The filter does not re-run when a rating changes, so a track can stay listed until the view is rebuilt.
+- A play or a rating change re-runs an active filter, so a track that no longer matches leaves the list. Group views (Albums, Artists) are not filtered.
 
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.

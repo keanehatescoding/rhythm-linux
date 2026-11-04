@@ -399,6 +399,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         self.stats.set_rating(track.path, stars)
         self._refresh_row_summary(track.path)
+        self._rebuild_if_filtered()
 
     def _track_summary(self, track: Track) -> str:
         parts = [track.album] if track.album else []
@@ -409,6 +410,18 @@ class MainWindow(Gtk.ApplicationWindow):
         if plays:
             parts.append(f"{plays} play" + ("" if plays == 1 else "s"))
         return " · ".join(parts)
+
+    def _rebuild_if_filtered(self) -> None:
+        """A play or a rating can change which tracks a filter keeps. Rebuild the list when one is active.
+
+        Deferred to an idle callback so the list is not rebuilt inside the row's own activation handler.
+        """
+        if self.browse_by is None and self._filter_choice() != "All tracks":
+            GLib.idle_add(self._rebuild_filtered_list)
+
+    def _rebuild_filtered_list(self) -> bool:
+        self.populate_track_list()
+        return False  # run once
 
     def _refresh_row_summary(self, track_path: str) -> None:
         for row in _listbox_rows(self.track_list):
@@ -650,6 +663,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_btn.set_icon_name(PAUSE_ICON)
         self.stats.record_play(track.path)
         self._refresh_row_summary(track.path)
+        self._rebuild_if_filtered()
         if self.browse_by == "queue":
             self.populate_track_list()  # the upcoming list changed (also prepares the next file)
         else:

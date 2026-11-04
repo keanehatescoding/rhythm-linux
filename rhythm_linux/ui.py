@@ -20,6 +20,7 @@ from .equalizer import PRESET_NAMES, gains_for  # noqa: E402
 from . import iphone  # noqa: E402
 from .export import copy_tracks  # noqa: E402
 from . import phone_send  # noqa: E402
+from .phone_tools import missing_text, startup_notice  # noqa: E402
 
 CROSSFADE_OPTIONS = [(0, "Crossfade off"), (3, "Crossfade 3 s"), (6, "Crossfade 6 s"), (10, "Crossfade 10 s")]
 from .queue import REPEAT_ALL, REPEAT_OFF, REPEAT_ONE, PlaybackQueue  # noqa: E402
@@ -375,7 +376,9 @@ class MainWindow(Gtk.ApplicationWindow):
         if generation != self._scan_generation:
             return False  # a newer scan has started; drop this result
         self.tracks = merge_tracks(scanned, self.session_tracks)
-        self.status.set_label(f"{len(scanned)} tracks in {folder}")
+        summary = f"{len(scanned)} tracks in {folder}"
+        notice = startup_notice()  # phone features that cannot run, if any
+        self.status.set_label(f"{summary}. {notice}" if notice else summary)
         self.populate_track_list()
         return False  # run once
 
@@ -426,6 +429,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _start_iphone_read(self) -> None:
         """Mount the phone read-only on a worker thread and list its audio files."""
+        missing = iphone.tools_missing()
+        if missing:
+            self.status.set_label(missing_text("iPhone browsing", missing))
+            return
         self._iphone_generation = getattr(self, "_iphone_generation", 0) + 1
         generation = self._iphone_generation
         self.status.set_label("Reading iPhone…")
@@ -726,6 +733,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _send_worker(self, paths: list[Path]) -> None:
         # Off the main thread: runs kdeconnect-cli, touches no widgets.
+        if not phone_send.available():
+            GLib.idle_add(self._send_finished, None, missing_text("KDE Connect sending", ["kdeconnect-cli"]))
+            return
         try:
             ids = phone_send.paired_device_ids()
         except Exception as exc:

@@ -6,7 +6,7 @@ from typing import Callable, Optional
 import gi
 
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst  # noqa: E402
+from gi.repository import GLib, Gst  # noqa: E402
 
 Gst.init(None)
 
@@ -18,13 +18,17 @@ class Player:
     PLAYING = "playing"
     PAUSED = "paused"
 
-    def __init__(self, on_end_of_stream: Optional[Callable[[], None]] = None):
+    def __init__(self, on_end_of_stream: Optional[Callable[[], None]] = None,
+                 on_gapless: Optional[Callable[[], None]] = None):
         self._playbin = Gst.ElementFactory.make("playbin", "rhythm-playbin")
         if self._playbin is None:
             raise RuntimeError("GStreamer 'playbin' element is not available")
         self._on_end = on_end_of_stream
+        self._on_gapless = on_gapless  # called on the GTK main loop after a gapless switch
+        self._next_uri: Optional[str] = None
         self.state = self.STOPPED  # tracked by us, so it is right immediately after a call
         self.error: Optional[str] = None
+        self._playbin.connect("about-to-finish", self._handle_about_to_finish)
         bus = self._playbin.get_bus()
         bus.add_signal_watch()
         bus.connect("message::eos", self._handle_eos)
@@ -34,6 +38,24 @@ class Player:
         self._set(self.STOPPED)
         if self._on_end is not None:
             self._on_end()
+
+    def set_next_file(self, path: Optional[str]) -> None:
+        """File to start with no gap when the current one ends. None means stop at the end as usual."""
+        self._next_uri = Gst.filename_to_uri(path) if path else None
+
+    def _handle_about_to_finish(self, _playbin) -> None:
+        # Runs on a GStreamer streaming thread, so it only sets the URI and
+        # hands the UI update to the GTK main loop.
+        if self._next_uri is None:
+            return
+        self._playbin.set_property("uri", self._next_uri)
+        self._next_uri = None
+        if self._on_gapless is not None:
+            GLib.idle_add(self._notify_gapless)
+
+    def _notify_gapless(self) -> bool:
+        self._on_gapless()
+        return False
 
     def _handle_error(self, _bus, message) -> None:
         err, _debug = message.parse_error()
@@ -49,6 +71,7 @@ class Player:
 
     def play_file(self, path: str) -> None:
         self.error = None
+        self._next_uri = None
         self._set(self.STOPPED)
         self._playbin.set_property("uri", Gst.filename_to_uri(path))
         self._set(self.PLAYING)

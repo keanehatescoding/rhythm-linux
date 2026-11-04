@@ -88,7 +88,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.queue = PlaybackQueue()   # order of the view that was last played from
         self.current_playlist: str | None = None
         self.browse_by: str | None = None  # "album" or "artist" when browsing groups
-        self.player = Player(on_end_of_stream=self._play_next)
+        self.player = Player(on_end_of_stream=self._play_next, on_gapless=self._on_gapless_advance)
 
         header = Gtk.HeaderBar()
         open_btn = Gtk.Button(icon_name="folder-open-symbolic", tooltip_text="Choose music folder")
@@ -297,6 +297,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def populate_track_list(self) -> None:
         """Rebuild the track list in small batches so large libraries don't freeze the window."""
+        self._prepare_next()  # the queue may have changed; keep the gapless hand-off in step
         self._populate_generation += 1
         self.track_list.remove_all()
         self.delete_playlist_btn.set_sensitive(self.current_playlist is not None)
@@ -608,13 +609,31 @@ class MainWindow(Gtk.ApplicationWindow):
             self.now_playing.set_label(f"Could not play {track.title}: {self.player.error}")
             self.play_btn.set_icon_name(PLAY_ICON)
             return
+        self._announce(track)
+
+    def _announce(self, track: Track) -> None:
+        """Show a track as the one now playing and count it. Shared by normal and gapless starts."""
         self.now_playing.set_label(track.display_text)
         self._show_art(track.path)
         self.play_btn.set_icon_name(PAUSE_ICON)
         self.stats.record_play(track.path)
         self._refresh_row_summary(track.path)
         if self.browse_by == "queue":
-            self.populate_track_list()  # the upcoming list changed
+            self.populate_track_list()  # the upcoming list changed (also prepares the next file)
+        else:
+            self._prepare_next()
+
+    def _prepare_next(self) -> None:
+        """Hand the player the next track so it can start with no gap. Repeat-one and the end of the list use the normal path."""
+        upcoming = self.queue.upcoming()
+        nxt = upcoming[0] if upcoming and self.queue.repeat != REPEAT_ONE else None
+        self.player.set_next_file(nxt.path if nxt else None)
+
+    def _on_gapless_advance(self) -> None:
+        """The player has already started the next track with no gap; catch the queue and the display up."""
+        track = self.queue.next()
+        if track is not None:
+            self._announce(track)
 
     def _show_art(self, path: str) -> None:
         data = read_cover(path)
@@ -679,11 +698,13 @@ class MainWindow(Gtk.ApplicationWindow):
     def _on_shuffle_toggled(self, button: Gtk.ToggleButton) -> None:
         self.queue.set_shuffle(button.get_active())
         self.settings.shuffle = button.get_active()
+        self._prepare_next()
 
     def _on_repeat_clicked(self, _button) -> None:
         self.queue.cycle_repeat()
         self.settings.repeat = self.queue.repeat
         self._update_repeat_button()
+        self._prepare_next()
 
     def _update_repeat_button(self) -> None:
         mode = self.queue.repeat

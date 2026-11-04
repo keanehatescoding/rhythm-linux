@@ -71,6 +71,12 @@ A native Linux music library and player. Not affiliated with or derived from App
 ## Milestone 13 (done)
 - The playlist and rating buttons above the track list wrap onto more lines in a narrow window, so none run off the edge. Checked with a screenshot in a tiled Hyprland window.
 
+## Milestone 14 (done)
+- Gapless playback: the next track in Up Next is handed to GStreamer before the current one ends (playbin `about-to-finish`), so there is no silence between tracks.
+- The GStreamer thread only sets the URI. The queue, now-playing display and play count update on the GTK main loop.
+- Repeat-one and the end of the list use the normal end-of-stream path. Changes to the queue, shuffle or repeat re-prepare the next track.
+- Checked headlessly with three real files (MP3, FLAC, M4A): the second and third tracks started without a second `play_file` call, and playback stopped at the end of the queue.
+
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.
 

@@ -28,7 +28,7 @@ Status as of `a69c37c` on `master`. Items marked **open** are not done.
 - [ ] **open** Review the broad `except Exception` catches (in `ui.py` and `iphone.py`) and narrow each to the errors it expects, logging the rest
 - [ ] **open** Logging: a log file in the data folder, with errors recorded (not just printed)
 - [ ] **open** Crash test: kill the app during playback and during a scan; check that settings, playlists and stats files are intact
-- [ ] **open** Corrupt-data test: damaged `settings.json`, `playlists.json` and `stats.json` load with a backup or a clear message
+- [x] Corrupt-data test: damaged `settings.json`, `playlists.json` and `stats.json` are moved to `.json.bak` and the app starts with defaults (`tests/test_corrupt_data.py`)
 
 ## 5. Phone features
 - [ ] **open** Check at startup that `ifuse`, `ideviceinfo` and `kdeconnect-cli` exist; show a clear message in the UI when one is missing

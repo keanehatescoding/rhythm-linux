@@ -14,8 +14,14 @@ class Settings:
     def load(self) -> None:
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
-            self._data = data if isinstance(data, dict) else {}
-        except (FileNotFoundError, ValueError):
+            if not isinstance(data, dict):
+                raise ValueError("top level must be an object")
+            self._data = data
+        except FileNotFoundError:
+            self._data = {}
+        except (ValueError, TypeError):
+            # Keep the unreadable file as a backup rather than overwriting it on the next save.
+            os.replace(self.path, self.path.with_suffix(".json.bak"))
             self._data = {}
 
     def save(self) -> None:

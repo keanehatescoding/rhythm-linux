@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Rhythm
+GenericName=Music player
+Comment=Music library and player
+Exec=rhythm-linux
+Icon=audio-x-generic
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;library;playlist;player;
+StartupNotify=true

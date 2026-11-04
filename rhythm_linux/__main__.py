@@ -4,11 +4,13 @@ from pathlib import Path
 
 from gi.repository import GLib
 
+from . import __version__
 from .ui import RhythmApp
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="rhythm-linux")
+    parser.add_argument("--version", action="version", version=f"rhythm-linux {__version__}")
     parser.add_argument("--music-dir", type=Path, default=None,
                         help="folder to scan (default: last folder you chose, else ~/Music)")
     args = parser.parse_args(argv)

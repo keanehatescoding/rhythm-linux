@@ -5,8 +5,8 @@ Status as of `a69c37c` on `master`. Items marked **open** are not done.
 ## 1. Packaging and install
 - [x] `pyproject.toml` with name, version (0.1.0), Python version and dependencies (mutagen; PyGObject and GStreamer are system packages)
 - [x] Install check: installed into a scratch venv with system site packages; `rhythm-linux --help` runs. Still to do on a clean machine.
-- [ ] **open** Desktop launcher and icon installed by the package, not by hand
-- [ ] **open** Version number shown in the app (About or `--version`)
+- [~] Desktop launcher is in `data/rhythm-linux.desktop` and the README says how to install it. Not installed by the package yet, and the icon is still the generic system one.
+- [x] Version number: `rhythm-linux --version` (single source in `rhythm_linux/__init__.py`). Not shown in the window yet.
 
 ## 2. Documentation
 - [x] `README.md`: what the app does, install steps, system packages needed (GTK 4, GStreamer plugins, libimobiledevice, ifuse, KDE Connect)

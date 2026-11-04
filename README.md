@@ -27,6 +27,14 @@ python3 -m venv --system-site-packages ~/.venvs/rhythm
 ~/.venvs/rhythm/bin/rhythm-linux
 ```
 
+To add Rhythm to your application menu, copy the launcher file (it runs the `rhythm-linux` command, so the venv's `bin` folder must be on your `PATH`):
+
+```
+install -Dm644 data/rhythm-linux.desktop ~/.local/share/applications/rhythm-linux.desktop
+```
+
+Check the installed version with `rhythm-linux --version`.
+
 To run from the source folder without installing:
 
 ```

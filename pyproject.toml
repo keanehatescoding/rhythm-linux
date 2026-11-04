@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rhythm-linux"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A native Linux music library and player. Not affiliated with Apple."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,3 +19,6 @@ rhythm-linux = "rhythm_linux.__main__:main"
 
 [tool.setuptools]
 packages = ["rhythm_linux"]
+
+[tool.setuptools.dynamic]
+version = { attr = "rhythm_linux.__version__" }

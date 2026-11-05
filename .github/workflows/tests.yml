@@ -15,7 +15,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             python3-venv python3-gi gir1.2-gtk-4.0 \
-            gir1.2-gstreamer-1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good xvfb ffmpeg
+            gir1.2-gstreamer-1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav xvfb ffmpeg
 
       - name: Create a venv that can see the system packages
         run: python3 -m venv --system-site-packages .venv

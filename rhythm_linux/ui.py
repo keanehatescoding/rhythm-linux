@@ -39,6 +39,8 @@ PAUSE_ICON = "media-playback-pause-symbolic"
 
 def _format_time(seconds: float) -> str:
     total = int(seconds)
+    if total >= 3600:
+        return f"{total // 3600}:{total % 3600 // 60:02d}:{total % 60:02d}"
     return f"{total // 60}:{total % 60:02d}"
 
 

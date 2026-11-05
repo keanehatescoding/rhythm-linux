@@ -89,4 +89,4 @@ The tests cover the logic, not the window; GUI behaviour is checked by hand (see
 
 ## Licence
 
-To be decided before a public release.
+MIT. See [LICENSE](LICENSE).

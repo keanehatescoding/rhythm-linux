@@ -1155,9 +1155,12 @@ class MainWindow(Gtk.ApplicationWindow):
         if ctrl and keyval == Gdk.KEY_Left:
             self._play_previous()
             return True
-        if isinstance(self.get_focus(), (Gtk.Entry, Gtk.Text)):
+        focus = self.get_focus()
+        if isinstance(focus, (Gtk.Entry, Gtk.Text)):
             return False  # let text fields receive typing
         if keyval == Gdk.KEY_space:
+            if isinstance(focus, (Gtk.Button, Gtk.DropDown, Gtk.CheckButton)):
+                return False  # a focused control (Stop, Mute, a drop-down...) takes Space itself
             self._toggle_play()
         elif keyval in (Gdk.KEY_s, Gdk.KEY_S):
             self.shuffle_btn.set_active(not self.shuffle_btn.get_active())

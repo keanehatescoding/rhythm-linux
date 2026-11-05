@@ -3,7 +3,7 @@
 All notable changes to Rhythm (Linux) are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.0.0] - not yet released
+## [1.0.0] - 2026-11-05
 
 First release. Rhythm (Linux) is a local music player for GTK 4 with a read-only
 view of an iPhone and optional sending to a phone over KDE Connect.

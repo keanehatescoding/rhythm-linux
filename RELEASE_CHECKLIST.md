@@ -3,7 +3,7 @@
 Status as of `a69c37c` on `master`. Items marked **open** are not done.
 
 ## 1. Packaging and install
-- [x] `pyproject.toml` with name, version (0.1.0), Python version and dependencies (mutagen; PyGObject and GStreamer are system packages)
+- [x] `pyproject.toml` with name, version (from `rhythm_linux/__init__.py`, now 1.0.0), Python version and dependencies (mutagen; PyGObject and GStreamer are system packages)
 - [x] Install check: installed into a scratch venv with system site packages; `rhythm-linux --help` runs. Still to do on a clean machine.
 - [~] Desktop launcher is in `data/rhythm-linux.desktop` and the README says how to install it. Not installed by the package yet, and the icon is still the generic system one.
 - [x] Version number: `rhythm-linux --version` (single source in `rhythm_linux/__init__.py`). Not shown in the window yet.
@@ -50,6 +50,6 @@ Status as of `a69c37c` on `master`. Items marked **open** are not done.
 - [~] **open** The footer progress bar and time readout checked during long tracks. A 90 s file played in the real window: the time label stayed within about 1 s of the actual position, the slider followed it, a seek to 90% moved the position and the readout, and the end of the track reset the footer to 0:00 / 0:00. Found and fixed: the readout had no hours, so a track over an hour showed "75:00"; it now shows h:mm:ss from one hour (`_format_time` in `ui.py`, `tests/test_footer_time.py`). A generated 3,700 s WAV (8 kHz, 8-bit mono) played in the real window: the total read 1:01:40, the readout showed 0:01 at the start, and after a seek to 3,650 s it read 1:00:52 / 1:01:40 with the slider at 0.987. Not yet checked: that file played through from start to end in real time (the check seeked rather than waiting an hour).
 
 ## 8. Release
-- [~] **open** Changelog with version 1.0.0: `CHANGELOG.md` is drafted under "1.0.0 - not yet released". The version in `rhythm_linux/__init__.py` is still 0.1.0 and the date is not set. Each feature line was checked against the code except the "Known limits" wording, which is from this checklist.
+- [~] **open** Changelog with version 1.0.0: `CHANGELOG.md` is dated 2026-11-05 and `rhythm_linux/__init__.py` is set to 1.0.0. Each feature line was checked against the code except the "Known limits" wording, which is from this checklist.
 - [ ] **open** Tag the release and merge only after the items above that you consider required are done
 - [~] **open** Decide which items are required for 1.0 and which can wait. Proposed, not yet agreed: required are sections 1, 2 (except the clean-machine install and licence), 3 unit tests and CI, 4, and the phone items in section 5 that are already checked; the open items in sections 3, 5 and 7 can wait for 1.0.1. The changelog's "Known limits" names only some of them (the rest are not user-visible yet), so it needs another pass once the decision is made. The licence is needed before any public release.

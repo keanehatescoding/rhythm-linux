@@ -105,6 +105,15 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Sending runs on a worker thread. The status line reports how many were sent and any failure, including "No paired phone" when nothing is paired.
 - Only the sending direction is built. Nothing is read from the phone's storage.
 
+## Since Milestone 19
+- Startup check for `ifuse`, `ideviceinfo` and `kdeconnect-cli`; a missing tool is named in the status bar and in the phone action that needs it (`phone_tools.py`).
+- Phone reads give up after 60 s (`PHONE_READ_TIMEOUT_S`) with "The phone did not answer", and the mount is released in the background.
+- Library and tag readers catch specific errors only (`library.py`). Damaged `settings.json`, `playlists.json` or `stats.json` is moved to `.json.bak` and the app starts with defaults.
+- Warnings and errors go to `rhythm-linux.log` in the data folder (rotated at 1 MB, 3 kept). `--version` prints the version from `rhythm_linux/__init__.py`.
+- The track list is a virtualised `Gtk.ListView`. Search waits 250 ms after typing stops.
+- Icon-only controls, sliders, drop-downs and album art have accessible names (`_named()` in `ui.py`).
+- Data locations and reset steps are in `README.md`. The app makes no network calls except KDE Connect on the local network.
+
 ## Later
 - iPhone sync (see below). Paused until there is music on the phone or computer to test with.
 
@@ -112,5 +121,5 @@ A native Linux music library and player. Not affiliated with or derived from App
 - Phone is paired and readable via libimobiledevice and `ifuse` (read-only). `usbmuxd` is running.
 - The phone currently has no music files, so there is nothing to test a transfer with.
 - Read-only browse (`rhythm_linux/iphone.py`): `python3 -m rhythm_linux.iphone` prints the connected phone and its audio files. It mounts with `ifuse -o ro` in `~/.cache/rhythm-linux/iphone-mount` and unmounts afterwards. Listing ignores symlinks and stops at depth 6 (unit-tested). Nothing writes to the phone.
-- Sidebar entry "iPhone (read-only)": selecting it mounts the phone read-only on a worker thread and lists its audio files (file name, folder). Activating a file plays the list from that point, read straight from the read-only mount. Play counts are recorded under the mount path, so they are tied to this mount. The mount is released when the window closes or the app quits, and a mount still in progress at quit is waited for first. Checked headlessly: the real phone reports 0 files; fake files render and the search filters them; a real MP3/FLAC from the mount plays with the footer advancing and leaves no mount behind.
+- Sidebar entry "iPhone (read-only)": selecting it mounts the phone read-only on a worker thread and lists its audio files (file name, folder). Activating a file plays the list from that point, read straight from the read-only mount. Play counts are keyed by device and file (`iphone:<UDID>:<path on the phone>`), not by mount path, so they survive a remount. The mount is released when the window closes or the app quits, and a mount still in progress at quit is waited for first. Checked headlessly: the real phone reports 0 files; fake files render and the search filters them; a real MP3/FLAC from the mount plays with the footer advancing and leaves no mount behind.
 - Decided: no writes to `iTunes_Control` or Apple's music database. Option 2 (copy into a file-sharing app) is the next candidate if we want the phone to receive files.

@@ -15,7 +15,7 @@ Status as of `a69c37c` on `master`. Items marked **open** are not done.
 - [ ] **open** README install steps run on a clean machine
 - [x] Clean-room statement in `README.md`
 - [ ] **open** Licence (MIT or similar, your choice)
-- [ ] DESIGN.md is up to date through Milestone 19
+- [x] DESIGN.md is up to date through Milestone 19. Also fixed the iPhone play-count note (now keyed by device and file) and added a short section for the work since Milestone 19.
 
 ## 3. Testing
 - [x] Unit tests pass (86 as of this commit)

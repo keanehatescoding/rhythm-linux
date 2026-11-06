@@ -1,0 +1,38 @@
+Source: rhythm-linux
+Section: sound
+Priority: optional
+Maintainer: Rhythm (Linux) authors <catherine.kiplagat20@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               pybuild-plugin-pyproject,
+               python3-all,
+               python3-setuptools,
+               python3-wheel
+Standards-Version: 4.7.0
+Homepage: https://github.com/keanehatescoding/rhythm-linux
+Rules-Requires-Root: no
+
+Package: rhythm-linux
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         python3-gi,
+         python3-mutagen,
+         gir1.2-gtk-4.0,
+         gir1.2-gstreamer-1.0,
+         gstreamer1.0-plugins-base,
+         gstreamer1.0-plugins-good,
+         gstreamer1.0-plugins-ugly,
+         gstreamer1.0-libav
+Recommends: ifuse,
+            libimobiledevice-utils,
+            kdeconnect
+Description: native Linux music library and player
+ Rhythm (Linux) is a local music player for GTK 4. It scans a music folder
+ for MP3, AAC/M4A, FLAC, WAV, ALAC and AIFF files, with gapless playback,
+ crossfade, an equaliser, ratings, play counts and M3U playlists.
+ .
+ It also has a read-only view of a connected iPhone (through ifuse and
+ libimobiledevice) and can send tracks to a paired phone with KDE Connect.
+ .
+ Not affiliated with Apple.

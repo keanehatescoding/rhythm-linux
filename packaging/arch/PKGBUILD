@@ -1,0 +1,54 @@
+# Maintainer: Rhythm (Linux) authors
+pkgname=rhythm-linux
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="A native Linux music library and player. Not affiliated with Apple."
+arch=('any')
+url="https://github.com/keanehatescoding/rhythm-linux"
+license=('MIT')
+depends=(
+  'python'
+  'python-gobject'
+  'python-mutagen'
+  'gtk4'
+  'gstreamer'
+  'gst-plugins-base'
+  'gst-plugins-good'
+  'gst-plugins-ugly'
+  'gst-libav'            # AAC and ALAC decoding
+)
+optdepends=(
+  'libimobiledevice: browse a connected iPhone (read-only)'
+  'ifuse: browse a connected iPhone (read-only)'
+  'kdeconnect: send tracks to a paired phone'
+)
+makedepends=(
+  'python-build'
+  'python-installer'
+  'python-setuptools'
+  'python-wheel'
+)
+checkdepends=('python-pytest')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+# Replace SKIP with the real checksum once the v1.0.0 tag exists:
+#   curl -sL "$url/archive/v$pkgver.tar.gz" | sha256sum
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  # The GUI tests need a display and are skipped without one.
+  python -m pytest -q
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 data/rhythm-linux.desktop \
+    "$pkgdir/usr/share/applications/rhythm-linux.desktop"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

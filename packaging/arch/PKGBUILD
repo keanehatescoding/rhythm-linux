@@ -10,7 +10,7 @@ depends=(
   'python'
   'python-gobject'
   'python-mutagen'
-  'gtk4>=4.12'
+  'gtk4>=1:4.12'
   'gstreamer'
   'gst-plugins-base'
   'gst-plugins-good'

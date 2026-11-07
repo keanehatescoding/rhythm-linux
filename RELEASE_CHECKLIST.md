@@ -53,6 +53,6 @@ Packaging for Arch (`packaging/arch/PKGBUILD`), Debian (`debian/`) and Fedora (`
 
 ## 8. Release
 - [x] Changelog with version 1.0.0: `CHANGELOG.md` is dated 2026-11-05 and `rhythm_linux/__init__.py` is set to 1.0.0. Each feature line was checked against the code. The "Known limits" lines were checked too: read-only iPhone (`iphone.py` mounts read-only), WAV/AIFF tag fallback and the missing AIFF NAME/AUTH reads (`library.py` reads only ID3 TIT2/TPE1/TALB), the GStreamer warning (seen once in the soak run, not in the app log, line 26), and one distribution with one iPhone (line 36).
-- [ ] **open** Tag the release and merge only after the items above that you consider required are done
+- [x] Tag the release and merge only after the items above that you consider required are done. Tagged `v1.0.0` (on `b652cbf`), release published, and the Arch checksum merged in PR #3
 - [x] Decided which items are required for 1.0: sections 1, 2 (except the clean-machine install), 3 unit tests and CI, 4, and the phone items in section 5 that are already checked. The open items in sections 3, 5 and 7 wait for 1.0.1. The licence is needed before any public release.
 - [x] Changelog "Known limits" pass: the user-visible deferred items are now listed (screen reader and light theme not checked, and the phone limits). The other open items are not user-visible.

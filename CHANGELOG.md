@@ -50,3 +50,4 @@ view of an iPhone and optional sending to a phone over KDE Connect.
 - WAV and AIFF files with no ID3 tags show the filename as the title; AIFF text chunks (NAME, AUTH) are not read.
 - GStreamer may print one "Trying to dispose element inputselector" warning during long gapless sessions. It comes from playbin internals and does not appear in the app log.
 - Tested on one distribution with one iPhone model.
+- Screen reader use and the light system theme have not been checked yet.

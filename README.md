@@ -79,7 +79,7 @@ Rhythm does not send any of this data anywhere.
 
 ## Limits
 
-- Linux only. The iPhone view is read-only, and the app never writes to the phone's music database.
+- Linux only. The iPhone view is read-only, and the app never writes to the phone's music database. It also does not read that database, so music that exists only there is not shown.
 - Tracks are not synced into Apple Music.
 
 ## Clean-room statement

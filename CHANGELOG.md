@@ -47,7 +47,9 @@ view of an iPhone and optional sending to a phone over KDE Connect.
 
 ### Known limits
 - iPhone access is read-only.
+- iPhone browsing lists audio files in the phone's file system only. Music that exists only in the phone's music database (`iTunes_Control`) is not shown.
 - WAV and AIFF files with no ID3 tags show the filename as the title; AIFF text chunks (NAME, AUTH) are not read.
 - GStreamer may print one "Trying to dispose element inputselector" warning during long gapless sessions. It comes from playbin internals and does not appear in the app log.
 - Tested on one distribution with one iPhone model.
 - Screen reader use and the light system theme have not been checked yet.
+- Keyboard focus visibility has not been checked in either theme.

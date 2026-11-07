@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+# Run the test suite during the build. The GUI tests skip themselves when there
+# is no display, so they do not run here.
+override_dh_auto_test:
+	python3 -m pytest -q

@@ -41,6 +41,14 @@ To run from the source folder without installing:
 python3 -m rhythm_linux --music-dir ~/Music
 ```
 
+## Distribution packages
+
+Build files are in the repository:
+
+- Arch: `packaging/arch/PKGBUILD`. Run `makepkg -si` in that folder. It downloads the release tarball from GitHub, so the `v1.0.0` tag must exist (and the checksum must be filled in).
+- Debian and Ubuntu: the `debian/` folder at the top of the repository. From an unpacked source tree (`rhythm-linux_1.0.0.orig.tar.gz`), install the build dependencies with `sudo apt build-dep .`, then run `dpkg-buildpackage -us -uc -b`. The build runs the test suite. Supported releases are Debian 13 (trixie) and Ubuntu 24.04 or later. Debian 12 (GTK 4.8) and Ubuntu 22.04 (setuptools 59.6) are too old for this package and apt will refuse to install it there.
+- Fedora: `packaging/fedora/rhythm-linux.spec`. Save the GitHub archive for the tag as `~/rpmbuild/SOURCES/rhythm-linux-1.0.0.tar.gz` (the name the spec expects), then run `rpmbuild -ba packaging/fedora/rhythm-linux.spec`.
+
 ## Using it
 
 - Choose a music folder with the folder button, or drop a folder onto the window.

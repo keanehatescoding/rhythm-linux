@@ -30,9 +30,7 @@ makedepends=(
 )
 checkdepends=('python-pytest')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-# Replace SKIP with the real checksum once the v1.0.0 tag exists:
-#   curl -sL "$url/archive/v$pkgver.tar.gz" | sha256sum
-sha256sums=('SKIP')
+sha256sums=('986f8702c8400f3069e24e5c1cf8b68bfa15088c4073a319fb860a69ea1cd984')
 
 build() {
   cd "$pkgname-$pkgver"

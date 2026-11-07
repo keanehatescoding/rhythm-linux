@@ -42,9 +42,11 @@ class Player:
     PAUSED = "paused"
 
     def __init__(self, on_end_of_stream: Optional[Callable[[], None]] = None,
-                 on_gapless: Optional[Callable[[], None]] = None):
+                 on_gapless: Optional[Callable[[], None]] = None,
+                 on_error: Optional[Callable[[str], None]] = None):
         self._on_end = on_end_of_stream
         self._on_gapless = on_gapless  # called on the GTK main loop after a track hand-off
+        self._on_error = on_error      # called on the GTK main loop when a track cannot play
         self._bins = [self._make_bin("rhythm-playbin-a"), self._make_bin("rhythm-playbin-b")]
         self._cur = self._bins[0]              # the bin playing the current track
         self._fade_to: Optional[_Bin] = None   # the incoming bin while a crossfade runs
@@ -92,6 +94,15 @@ class Player:
             return
         self.error = err.message
         self._set(self.STOPPED)
+        if self._on_error is not None:
+            GLib.idle_add(self._notify_error, err.message)
+
+    def _notify_error(self, message: str) -> bool:
+        # The user may have started another track before this idle callback ran; only
+        # report the error if the failed playback is still the current state.
+        if self.state == self.STOPPED:
+            self._on_error(message)
+        return False
 
     def _handle_about_to_finish(self, b: _Bin) -> None:
         # Runs on a GStreamer streaming thread, so it only sets the URI and

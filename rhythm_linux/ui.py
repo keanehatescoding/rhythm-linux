@@ -180,7 +180,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.queue = PlaybackQueue()   # order of the view that was last played from
         self.current_playlist: str | None = None
         self.browse_by: str | None = None  # "album" or "artist" when browsing groups
-        self.player = Player(on_end_of_stream=self._play_next, on_gapless=self._on_gapless_advance)
+        self.player = Player(on_end_of_stream=self._play_next, on_gapless=self._on_gapless_advance,
+                             on_error=self._on_playback_error)
 
         header = Gtk.HeaderBar()
         open_btn = Gtk.Button(icon_name="folder-open-symbolic", tooltip_text="Choose music folder")
@@ -970,11 +971,12 @@ class MainWindow(Gtk.ApplicationWindow):
         if track is None:
             return
         self.player.play_file(track.path)
-        if self.player.error:
-            self.now_playing.set_label(f"Could not play {track.title}: {self.player.error}")
-            self.play_btn.set_icon_name(PLAY_ICON)
-            return
         self._announce(track)
+
+    def _on_playback_error(self, message: str) -> None:
+        """A track failed after play started (a damaged file, or no audio output). Reset the controls."""
+        self._stop()
+        self.now_playing.set_label(f"Could not play the track: {message}")
 
     def _announce(self, track: Track) -> None:
         """Show a track as the one now playing and count it. Shared by normal and gapless starts."""

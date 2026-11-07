@@ -7,7 +7,16 @@ Build-Depends: debhelper-compat (= 13),
                pybuild-plugin-pyproject,
                python3-all,
                python3-setuptools,
-               python3-wheel
+               python3-wheel,
+               python3-pytest,
+               python3-gi,
+               python3-mutagen (>= 1.45),
+               gir1.2-gtk-4.0,
+               gir1.2-gstreamer-1.0,
+               gstreamer1.0-plugins-base,
+               gstreamer1.0-plugins-good,
+               gstreamer1.0-plugins-ugly,
+               gstreamer1.0-libav
 Standards-Version: 4.7.0
 Homepage: https://github.com/keanehatescoding/rhythm-linux
 Rules-Requires-Root: no
@@ -16,8 +25,9 @@ Package: rhythm-linux
 Architecture: all
 Depends: ${python3:Depends},
          ${misc:Depends},
+         python3 (>= 3.10),
          python3-gi,
-         python3-mutagen,
+         python3-mutagen (>= 1.45),
          gir1.2-gtk-4.0,
          gir1.2-gstreamer-1.0,
          gstreamer1.0-plugins-base,

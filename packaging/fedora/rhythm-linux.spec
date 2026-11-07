@@ -4,14 +4,14 @@ Release:        1%{?dist}
 Summary:        A native Linux music library and player
 License:        MIT
 URL:            https://github.com/keanehatescoding/rhythm-linux
-Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
+Source0:        %{url}/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 BuildArch:      noarch
 
 BuildRequires:  python3-devel
 BuildRequires:  pyproject-rpm-macros
 
 Requires:       python3-gobject
-Requires:       python3-mutagen
+Requires:       python3-mutagen >= 1.45
 Requires:       gtk4
 Requires:       gstreamer1-plugins-base
 Requires:       gstreamer1-plugins-good

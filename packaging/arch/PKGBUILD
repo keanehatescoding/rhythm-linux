@@ -51,4 +51,11 @@ package() {
   install -Dm644 data/rhythm-linux.desktop \
     "$pkgdir/usr/share/applications/rhythm-linux.desktop"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  # Import the installed package, not the source tree: run from / so the
+  # source folder is not on sys.path, and point PYTHONPATH at the staged install.
+  local site
+  site=$(python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
+  (cd / && PYTHONPATH="$pkgdir$site" python -c \
+    'import rhythm_linux.__main__, rhythm_linux; print(rhythm_linux.__version__)')
 }

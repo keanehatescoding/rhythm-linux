@@ -12,7 +12,7 @@ BuildRequires:  pyproject-rpm-macros
 
 Requires:       python3-gobject
 Requires:       python3-mutagen >= 1.45
-Requires:       gtk4 >= 4.10
+Requires:       gtk4 >= 4.12
 Requires:       gstreamer1-plugins-base
 Requires:       gstreamer1-plugins-good
 Requires:       gstreamer1-plugins-ugly-free

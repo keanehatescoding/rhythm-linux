@@ -970,21 +970,11 @@ class MainWindow(Gtk.ApplicationWindow):
     def _play_track(self, track: Track | None) -> None:
         if track is None:
             return
-        self._pending_play = None
         self.player.play_file(track.path)
         self._announce(track)
 
     def _on_playback_error(self, message: str) -> None:
         """A track failed after play started (a damaged file, or no audio output). Reset the controls."""
-        pending = getattr(self, "_pending_play", None)
-        if pending is not None:
-            key, prev, existed = pending
-            if existed and prev is not None:
-                self.stats._stats[key] = prev
-            else:
-                self.stats._stats.pop(key, None)
-            self.stats.save()
-            self._pending_play = None
         self._stop()
         self.now_playing.set_label(f"Could not play the track: {message}")
 
@@ -993,10 +983,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.now_playing.set_label(track.display_text)
         self._show_art(track.path)
         self.play_btn.set_icon_name(PAUSE_ICON)
-        key = track.play_key
-        prev = self.stats._stats.get(key)
-        self._pending_play = (key, (dict(prev) if prev is not None else None), key in self.stats._stats)
-        self.stats.record_play(key)
+        self.stats.record_play(track.play_key)
         self._refresh_row_summary(track.path)
         self._rebuild_if_filtered()
         if self.browse_by == "queue":

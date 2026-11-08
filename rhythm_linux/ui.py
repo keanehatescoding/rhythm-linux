@@ -62,7 +62,7 @@ def _named(widget, name: str):
 def _choice_combo(labels) -> Gtk.ComboBoxText:
     """A drop-down of text choices. Gtk.DropDown does not expose its name to screen readers
     (it shows the selected value), so these use ComboBoxText, which does. The first choice is
-    selected, as with Gtk.DropDown."""
+    selected, as with Gtk.DropDown; empty labels leave no active choice."""
     combo = Gtk.ComboBoxText()
     for text in labels:
         combo.append_text(text)
@@ -178,6 +178,7 @@ def release_phone() -> None:
 class MainWindow(Gtk.ApplicationWindow):
     def __init__(self, app: Gtk.Application, music_dir: Path, store: PlaylistStore,
                  settings: Settings, stats: TrackStats):
+        """Build the window, apply saved playback settings, and start scanning music_dir."""
         super().__init__(application=app, title="Rhythm", default_width=1000, default_height=640)
         self.music_dir = music_dir
         self.store = store
@@ -245,6 +246,7 @@ class MainWindow(Gtk.ApplicationWindow):
     # ---- layout -----------------------------------------------------------
 
     def _build_body(self) -> Gtk.Paned:
+        """Build and return the sidebar and track pane, connecting their controls."""
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, vexpand=True)
         paned.set_position(240)
         paned.set_shrink_start_child(False)
@@ -433,6 +435,7 @@ class MainWindow(Gtk.ApplicationWindow):
         return False  # run once
 
     def _sort_key(self) -> str:
+        """Return the selected sort label, or "Artist" when no choice is active."""
         text = self.sort_dropdown.get_active_text()
         return text if text is not None else "Artist"
 
@@ -440,6 +443,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.populate_track_list()
 
     def _filter_choice(self) -> str:
+        """Return the selected filter label, or "All tracks" when no choice is active."""
         text = self.filter_dropdown.get_active_text()
         return text if text is not None else "All tracks"
 
@@ -583,6 +587,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.move_down_btn.set_sensitive(offset is not None and offset < count - 1)
 
     def _sync_rating_control(self) -> None:
+        """Show the selected track's rating without saving it; disable the control without a track."""
         track = self._selected_track()
         self._syncing_rating = True
         self.rating_dropdown.set_sensitive(track is not None)
@@ -590,6 +595,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self._syncing_rating = False
 
     def _on_rating_chosen(self, *_args) -> None:
+        """Save the selected track's rating (0 clears it) and refresh its display.
+
+        Ignore programmatic synchronization, missing tracks, and invalid choices.
+        OSError from saving the rating propagates before the display is refreshed."""
         if self._syncing_rating:
             return
         track = self._selected_track()
@@ -673,6 +682,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self._update_playlist_controls()
 
     def refresh_playlists(self) -> None:
+        """Rebuild sidebar choices and reset the add-to target to the first playlist.
+
+        Clear a deleted current playlist and restore the sidebar selection when possible.
+        With no playlists, leave the target unselected and disable adding tracks."""
         names = self.store.names()
         if self.current_playlist not in names:
             self.current_playlist = None
@@ -930,6 +943,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self._activate_row(self._track_filtered.get_item(position))
 
     def _on_add_to_playlist(self, _btn) -> None:
+        """Append the selected track to the chosen playlist and show its name in the status.
+
+        With either selection missing, show a prompt instead. KeyError for a missing
+        playlist and OSError from saving propagate before the success status is set."""
         track = self._selected_track()
         name = self.target_dropdown.get_active_text()
         if track is None or name is None:
@@ -1056,6 +1073,10 @@ class MainWindow(Gtk.ApplicationWindow):
         return 0
 
     def _on_fade_chosen(self, *_args) -> None:
+        """Save and apply the chosen overlap in seconds; zero disables crossfade.
+
+        Ignore absent or invalid choices. OSError from saving settings propagates
+        before the player is updated."""
         index = self.fade_dropdown.get_active()
         if index < 0 or index >= len(CROSSFADE_OPTIONS):
             return
@@ -1064,6 +1085,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.player.set_crossfade(seconds)
 
     def _on_eq_chosen(self, *_args) -> None:
+        """Save and apply the chosen equalizer preset, ignoring absent or invalid choices.
+
+        Show a status message if the player reports the equalizer is unavailable.
+        OSError from saving settings propagates before the player is updated."""
         index = self.eq_dropdown.get_active()
         if index < 0 or index >= len(PRESET_NAMES):
             return
@@ -1156,6 +1181,12 @@ class MainWindow(Gtk.ApplicationWindow):
     # ---- keyboard ----------------------------------------------------------
 
     def _on_key(self, _controller, keyval, _keycode, state) -> bool:
+        """Handle window shortcuts and return True when the key is consumed.
+
+        Ctrl+F focuses search; Ctrl+Left/Right changes tracks even in text fields.
+        Otherwise, leave text input alone and reserve Space for focused buttons,
+        text choice controls, and check buttons. Elsewhere Space toggles playback;
+        S, R, and M toggle shuffle, cycle repeat, and toggle mute, respectively."""
         ctrl = bool(state & Gdk.ModifierType.CONTROL_MASK)
         if ctrl and keyval in (Gdk.KEY_f, Gdk.KEY_F):
             self.search.grab_focus()

@@ -96,3 +96,6 @@ def test_sort_by_artist_then_album_orders_the_list(app):
 
     choose_sort(win, "Album")
     assert pump_until(lambda: visible_names(win) == ALBUM_ORDER)
+
+    choose_sort(win, "Artist")
+    assert pump_until(lambda: visible_names(win) == ARTIST_ORDER)

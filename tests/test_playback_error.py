@@ -33,3 +33,20 @@ def test_missing_file_reports_an_error_through_the_callback(tmp_path):
     assert player.error
     assert player.state == Player.STOPPED
     assert not player.has_media
+
+
+def test_a_late_error_from_an_earlier_playback_is_not_reported(tmp_path):
+    # Track A fails, then the user starts and stops track B before A's idle callback
+    # runs. The player is STOPPED either way, but A's error must not reach the window.
+    errors = []
+    player = Player(on_error=errors.append)
+    try:
+        player.play_file(str(tmp_path / "a.mp3"))
+        stale = player._play_id
+        player.play_file(str(tmp_path / "b.mp3"))
+        player.stop()
+        player._notify_error(stale, "a.mp3 failed")
+    finally:
+        player.stop()
+
+    assert errors == []

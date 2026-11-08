@@ -58,6 +58,7 @@ class Player:
         self._eq_gains: Optional[list[float]] = None
         self.state = self.STOPPED  # tracked by us, so it is right immediately after a call
         self.error: Optional[str] = None
+        self._play_id = 0  # bumped by every play_file() and stop(): tells a late error which playback it was
         GLib.timeout_add(TICK_MS, self._tick)
 
     # ---- setup ---------------------------------------------------------------
@@ -95,12 +96,12 @@ class Player:
         self.error = err.message
         self._set(self.STOPPED)
         if self._on_error is not None:
-            GLib.idle_add(self._notify_error, err.message)
+            GLib.idle_add(self._notify_error, self._play_id, err.message)
 
-    def _notify_error(self, message: str) -> bool:
-        # The user may have started another track before this idle callback ran; only
-        # report the error if the failed playback is still the current state.
-        if self.state == self.STOPPED:
+    def _notify_error(self, play_id: int, message: str) -> bool:
+        # The user may have started (or started and stopped) another track before this
+        # idle callback ran. STOPPED alone can't tell those apart, so compare play ids.
+        if play_id == self._play_id and self.state == self.STOPPED:
             self._on_error(message)
         return False
 
@@ -197,6 +198,7 @@ class Player:
             self._fade_to.element.set_state(gst_state)
 
     def play_file(self, path: str) -> None:
+        self._play_id += 1
         self.error = None
         self._next_uri = None
         self._set(self.STOPPED)
@@ -213,6 +215,7 @@ class Player:
             self._set(self.PLAYING)
 
     def stop(self) -> None:
+        self._play_id += 1
         self._set(self.STOPPED)
 
     @property

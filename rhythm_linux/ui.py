@@ -59,6 +59,17 @@ def _named(widget, name: str):
     return widget
 
 
+def _choice_combo(labels) -> Gtk.ComboBoxText:
+    """A drop-down of text choices. Gtk.DropDown does not expose its name to screen readers
+    (it shows the selected value), so these use ComboBoxText, which does. The first choice is
+    selected, as with Gtk.DropDown; empty labels leave no active choice."""
+    combo = Gtk.ComboBoxText()
+    for text in labels:
+        combo.append_text(text)
+    combo.set_active(0)
+    return combo
+
+
 def _label(text: str, dim: bool = False) -> Gtk.Label:
     label = Gtk.Label(label=text, xalign=0)
     label.set_ellipsize(Pango.EllipsizeMode.END)
@@ -167,6 +178,7 @@ def release_phone() -> None:
 class MainWindow(Gtk.ApplicationWindow):
     def __init__(self, app: Gtk.Application, music_dir: Path, store: PlaylistStore,
                  settings: Settings, stats: TrackStats):
+        """Build the window, apply saved playback settings, and start scanning music_dir."""
         super().__init__(application=app, title="Rhythm", default_width=1000, default_height=640)
         self.music_dir = music_dir
         self.store = store
@@ -189,19 +201,19 @@ class MainWindow(Gtk.ApplicationWindow):
         _named(open_btn, "Choose music folder")
         header.pack_start(open_btn)
         # The equalizer is a global setting, so it lives in the header bar rather than the crowded footer.
-        self.eq_dropdown = Gtk.DropDown.new_from_strings(list(PRESET_NAMES))
+        self.eq_dropdown = _choice_combo(PRESET_NAMES)
         self.eq_dropdown.set_tooltip_text("Equalizer preset")
         _named(self.eq_dropdown, "Equalizer preset")
-        self.eq_dropdown.set_selected(PRESET_NAMES.index(self.settings.equalizer)
+        self.eq_dropdown.set_active(PRESET_NAMES.index(self.settings.equalizer)
                                       if self.settings.equalizer in PRESET_NAMES else 0)
-        self.eq_dropdown.connect("notify::selected", self._on_eq_chosen)
+        self.eq_dropdown.connect("changed", self._on_eq_chosen)
         header.pack_end(self.eq_dropdown)
         # Crossfade is also global, so it sits in the header bar next to the equalizer.
-        self.fade_dropdown = Gtk.DropDown.new_from_strings([label for _secs, label in CROSSFADE_OPTIONS])
+        self.fade_dropdown = _choice_combo([label for _secs, label in CROSSFADE_OPTIONS])
         self.fade_dropdown.set_tooltip_text("Crossfade between tracks")
         _named(self.fade_dropdown, "Crossfade between tracks")
-        self.fade_dropdown.set_selected(self._crossfade_index(self.settings.crossfade))
-        self.fade_dropdown.connect("notify::selected", self._on_fade_chosen)
+        self.fade_dropdown.set_active(self._crossfade_index(self.settings.crossfade))
+        self.fade_dropdown.connect("changed", self._on_fade_chosen)
         header.pack_end(self.fade_dropdown)
         self.set_titlebar(header)
 
@@ -235,6 +247,7 @@ class MainWindow(Gtk.ApplicationWindow):
     # ---- layout -----------------------------------------------------------
 
     def _build_body(self) -> Gtk.Paned:
+        """Build and return the sidebar and track pane, connecting their controls."""
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL, vexpand=True)
         paned.set_position(240)
         paned.set_shrink_start_child(False)
@@ -273,14 +286,14 @@ class MainWindow(Gtk.ApplicationWindow):
         self._search_timer = 0
         self.search.connect("changed", self._on_search_changed)
         _named(self.search, "Search library")
-        self.sort_dropdown = Gtk.DropDown.new_from_strings(list(SORT_KEYS) + list(STATS_SORTS))
+        self.sort_dropdown = _choice_combo(list(SORT_KEYS) + list(STATS_SORTS))
         self.sort_dropdown.set_tooltip_text("Sort library by")
         _named(self.sort_dropdown, "Sort library by")
-        self.sort_dropdown.connect("notify::selected", self._on_sort_changed)
-        self.filter_dropdown = Gtk.DropDown.new_from_strings(list(FILTERS))
+        self.sort_dropdown.connect("changed", self._on_sort_changed)
+        self.filter_dropdown = _choice_combo(list(FILTERS))
         self.filter_dropdown.set_tooltip_text("Show only tracks matching")
         _named(self.filter_dropdown, "Show only tracks matching")
-        self.filter_dropdown.connect("notify::selected", self._on_filter_changed)
+        self.filter_dropdown.connect("changed", self._on_filter_changed)
         search_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         search_row.append(self.search)
         search_row.append(self.filter_dropdown)
@@ -304,7 +317,7 @@ class MainWindow(Gtk.ApplicationWindow):
         actions = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=False,
                               column_spacing=6, row_spacing=6,
                               min_children_per_line=1, max_children_per_line=12)
-        self.target_dropdown = _named(Gtk.DropDown(model=Gtk.StringList()), "Playlist to add to")
+        self.target_dropdown = _named(Gtk.ComboBoxText(), "Playlist to add to")
         self.add_to_btn = Gtk.Button(label="Add selected to playlist")
         self.add_to_btn.connect("clicked", self._on_add_to_playlist)
         self.remove_btn = Gtk.Button(label="Remove from this playlist", sensitive=False)
@@ -317,12 +330,12 @@ class MainWindow(Gtk.ApplicationWindow):
         _named(self.move_up_btn, "Move up")
         self.move_down_btn.connect("clicked", lambda *_: self._on_move(1))
         _named(self.move_down_btn, "Move down")
-        self.rating_dropdown = Gtk.DropDown.new_from_strings(RATING_LABELS)
+        self.rating_dropdown = _choice_combo(RATING_LABELS)
         self.rating_dropdown.set_tooltip_text("Rate the selected track")
         _named(self.rating_dropdown, "Rate the selected track")
         self.rating_dropdown.set_sensitive(False)
         self._syncing_rating = False  # True while we set the dropdown from code
-        self.rating_dropdown.connect("notify::selected", self._on_rating_chosen)
+        self.rating_dropdown.connect("changed", self._on_rating_chosen)
         self.export_shown_btn = Gtk.Button(label="Export shown to folder…",
                                            tooltip_text="Copy the tracks in this list (after search and filter)")
         self.export_shown_btn.connect("clicked", self._on_export_shown)
@@ -423,15 +436,17 @@ class MainWindow(Gtk.ApplicationWindow):
         return False  # run once
 
     def _sort_key(self) -> str:
-        item = self.sort_dropdown.get_selected_item()
-        return item.get_string() if item is not None else "Artist"
+        """Return the selected sort label, or "Artist" when no choice is active."""
+        text = self.sort_dropdown.get_active_text()
+        return text if text is not None else "Artist"
 
     def _on_sort_changed(self, *_args) -> None:
         self.populate_track_list()
 
     def _filter_choice(self) -> str:
-        item = self.filter_dropdown.get_selected_item()
-        return item.get_string() if item is not None else "All tracks"
+        """Return the selected filter label, or "All tracks" when no choice is active."""
+        text = self.filter_dropdown.get_active_text()
+        return text if text is not None else "All tracks"
 
     def _on_filter_changed(self, *_args) -> None:
         self.populate_track_list()
@@ -573,18 +588,23 @@ class MainWindow(Gtk.ApplicationWindow):
         self.move_down_btn.set_sensitive(offset is not None and offset < count - 1)
 
     def _sync_rating_control(self) -> None:
+        """Show the selected track's rating without saving it; disable the control without a track."""
         track = self._selected_track()
         self._syncing_rating = True
         self.rating_dropdown.set_sensitive(track is not None)
-        self.rating_dropdown.set_selected(self.stats.rating(track.play_key) if track else 0)
+        self.rating_dropdown.set_active(self.stats.rating(track.play_key) if track else 0)
         self._syncing_rating = False
 
     def _on_rating_chosen(self, *_args) -> None:
+        """Save the selected track's rating (0 clears it) and refresh its display.
+
+        Ignore programmatic synchronization, missing tracks, and invalid choices.
+        OSError from saving the rating propagates before the display is refreshed."""
         if self._syncing_rating:
             return
         track = self._selected_track()
-        stars = self.rating_dropdown.get_selected()
-        if track is None or stars > MAX_RATING:  # an invalid position means no choice
+        stars = self.rating_dropdown.get_active()
+        if track is None or stars < 0 or stars > MAX_RATING:  # -1 means no choice
             return
         self.stats.set_rating(track.play_key, stars)
         self._refresh_row_summary(track.path)
@@ -663,6 +683,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self._update_playlist_controls()
 
     def refresh_playlists(self) -> None:
+        """Rebuild sidebar choices and reset the add-to target to the first playlist.
+
+        Clear a deleted current playlist and restore the sidebar selection when possible.
+        With no playlists, leave the target unselected and disable adding tracks."""
         names = self.store.names()
         if self.current_playlist not in names:
             self.current_playlist = None
@@ -689,10 +713,11 @@ class MainWindow(Gtk.ApplicationWindow):
         selected = self._sidebar_row_for(self.current_playlist, self.browse_by)
         self.sidebar.select_row(selected or library_row)
 
-        model = self.target_dropdown.get_model()
-        model.splice(0, model.get_n_items(), names)
+        self.target_dropdown.remove_all()
+        for name in names:
+            self.target_dropdown.append_text(name)
         if names:
-            self.target_dropdown.set_selected(0)
+            self.target_dropdown.set_active(0)
         self.add_to_btn.set_sensitive(bool(names))
 
     def _sidebar_row_for(self, name: str | None, browse: str | None = None):
@@ -919,12 +944,15 @@ class MainWindow(Gtk.ApplicationWindow):
         self._activate_row(self._track_filtered.get_item(position))
 
     def _on_add_to_playlist(self, _btn) -> None:
+        """Append the selected track to the chosen playlist and show its name in the status.
+
+        With either selection missing, show a prompt instead. KeyError for a missing
+        playlist and OSError from saving propagate before the success status is set."""
         track = self._selected_track()
-        item = self.target_dropdown.get_selected_item()
-        if track is None or item is None:
+        name = self.target_dropdown.get_active_text()
+        if track is None or name is None:
             self.status.set_label("Select a track and a playlist first")
             return
-        name = item.get_string()
         self.store.add_track(name, track.path)
         self.status.set_label(f"Added to {name}")
 
@@ -1047,16 +1075,24 @@ class MainWindow(Gtk.ApplicationWindow):
         return 0
 
     def _on_fade_chosen(self, *_args) -> None:
-        index = self.fade_dropdown.get_selected()
-        if index >= len(CROSSFADE_OPTIONS):
+        """Save and apply the chosen overlap in seconds; zero disables crossfade.
+
+        Ignore absent or invalid choices. OSError from saving settings propagates
+        before the player is updated."""
+        index = self.fade_dropdown.get_active()
+        if index < 0 or index >= len(CROSSFADE_OPTIONS):
             return
         seconds = CROSSFADE_OPTIONS[index][0]
         self.settings.crossfade = seconds
         self.player.set_crossfade(seconds)
 
     def _on_eq_chosen(self, *_args) -> None:
-        index = self.eq_dropdown.get_selected()
-        if index >= len(PRESET_NAMES):
+        """Save and apply the chosen equalizer preset, ignoring absent or invalid choices.
+
+        Show a status message if the player reports the equalizer is unavailable.
+        OSError from saving settings propagates before the player is updated."""
+        index = self.eq_dropdown.get_active()
+        if index < 0 or index >= len(PRESET_NAMES):
             return
         name = PRESET_NAMES[index]
         self.settings.equalizer = name
@@ -1147,6 +1183,12 @@ class MainWindow(Gtk.ApplicationWindow):
     # ---- keyboard ----------------------------------------------------------
 
     def _on_key(self, _controller, keyval, _keycode, state) -> bool:
+        """Handle window shortcuts and return True when the key is consumed.
+
+        Ctrl+F focuses search; Ctrl+Left/Right changes tracks even in text fields.
+        Otherwise, leave text input alone and reserve Space for focused buttons,
+        text choice controls, and check buttons. Elsewhere Space toggles playback;
+        S, R, and M toggle shuffle, cycle repeat, and toggle mute, respectively."""
         ctrl = bool(state & Gdk.ModifierType.CONTROL_MASK)
         if ctrl and keyval in (Gdk.KEY_f, Gdk.KEY_F):
             self.search.grab_focus()
@@ -1161,7 +1203,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if isinstance(focus, (Gtk.Entry, Gtk.Text)):
             return False  # let text fields receive typing
         if keyval == Gdk.KEY_space:
-            if isinstance(focus, (Gtk.Button, Gtk.DropDown, Gtk.CheckButton)):
+            if isinstance(focus, (Gtk.Button, Gtk.ComboBoxText, Gtk.CheckButton)):
                 return False  # a focused control (Stop, Mute, a drop-down...) takes Space itself
             self._toggle_play()
         elif keyval in (Gdk.KEY_s, Gdk.KEY_S):

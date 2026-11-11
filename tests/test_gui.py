@@ -67,7 +67,7 @@ def reset_window(app, music):
     for name in TRACKS:
         win.stats.set_rating(str(music / name), 0)
     win.search.set_text("")
-    win.filter_dropdown.set_selected(FILTERS.index("All tracks"))
+    win.filter_dropdown.set_active(FILTERS.index("All tracks"))
     pump_until(lambda: len(visible_names(win)) == len(TRACKS))
     yield
 
@@ -118,7 +118,7 @@ def test_rating_filter_shows_only_tracks_rated_three_or_more(app, music):
     win.stats.set_rating(str(music / "alpha.wav"), 4)
     win.stats.set_rating(str(music / "gamma.wav"), 2)
 
-    win.filter_dropdown.set_selected(FILTERS.index("Rated 3+ stars"))
+    win.filter_dropdown.set_active(FILTERS.index("Rated 3+ stars"))
     pump(0.3)
 
     assert visible_names(win) == ["alpha.wav"]

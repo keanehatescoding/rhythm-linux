@@ -86,7 +86,7 @@ result["clear_shown"] = shown()
 
 longest = 0.0
 names = list(SORT_KEYS) + list(STATS_SORTS)
-win.sort_dropdown.set_selected(names.index("Album"))
+win.sort_dropdown.set_active(names.index("Album"))
 pump_until(lambda: False, 1.0)  # let the sort run and any work it starts finish
 result["sort_shown"] = shown()
 result["sort_longest_pause"] = longest

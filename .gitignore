@@ -4,3 +4,7 @@ build/
 dist/
 *.egg-info/
 .pytest_cache/
+
+# Environment files can hold secrets; keep them out of the repo
+.env
+.env.*

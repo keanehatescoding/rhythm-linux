@@ -42,9 +42,11 @@ class Player:
     PAUSED = "paused"
 
     def __init__(self, on_end_of_stream: Optional[Callable[[], None]] = None,
-                 on_gapless: Optional[Callable[[], None]] = None):
+                 on_gapless: Optional[Callable[[], None]] = None,
+                 on_error: Optional[Callable[[str], None]] = None):
         self._on_end = on_end_of_stream
         self._on_gapless = on_gapless  # called on the GTK main loop after a track hand-off
+        self._on_error = on_error      # called on the GTK main loop when a track cannot play
         self._bins = [self._make_bin("rhythm-playbin-a"), self._make_bin("rhythm-playbin-b")]
         self._cur = self._bins[0]              # the bin playing the current track
         self._fade_to: Optional[_Bin] = None   # the incoming bin while a crossfade runs
@@ -56,6 +58,7 @@ class Player:
         self._eq_gains: Optional[list[float]] = None
         self.state = self.STOPPED  # tracked by us, so it is right immediately after a call
         self.error: Optional[str] = None
+        self._play_id = 0  # bumped by every play_file() and stop(): tells a late error which playback it was
         GLib.timeout_add(TICK_MS, self._tick)
 
     # ---- setup ---------------------------------------------------------------
@@ -92,6 +95,15 @@ class Player:
             return
         self.error = err.message
         self._set(self.STOPPED)
+        if self._on_error is not None:
+            GLib.idle_add(self._notify_error, self._play_id, err.message)
+
+    def _notify_error(self, play_id: int, message: str) -> bool:
+        # The user may have started (or started and stopped) another track before this
+        # idle callback ran. STOPPED alone can't tell those apart, so compare play ids.
+        if play_id == self._play_id and self.state == self.STOPPED:
+            self._on_error(message)
+        return False
 
     def _handle_about_to_finish(self, b: _Bin) -> None:
         # Runs on a GStreamer streaming thread, so it only sets the URI and
@@ -186,6 +198,7 @@ class Player:
             self._fade_to.element.set_state(gst_state)
 
     def play_file(self, path: str) -> None:
+        self._play_id += 1
         self.error = None
         self._next_uri = None
         self._set(self.STOPPED)
@@ -202,6 +215,7 @@ class Player:
             self._set(self.PLAYING)
 
     def stop(self) -> None:
+        self._play_id += 1
         self._set(self.STOPPED)
 
     @property

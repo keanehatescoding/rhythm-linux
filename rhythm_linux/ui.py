@@ -191,8 +191,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self._pending_select: int | None = None
         self.queue = PlaybackQueue()   # order of the view that was last played from
         self.current_playlist: str | None = None
+        self._pending_play: Track | None = None  # started track not yet counted as a play
         self.browse_by: str | None = None  # "album" or "artist" when browsing groups
-        self.player = Player(on_end_of_stream=self._play_next, on_gapless=self._on_gapless_advance)
+        self.player = Player(on_end_of_stream=self._on_track_finished, on_gapless=self._on_gapless_advance,
+                             on_error=self._on_playback_error)
 
         header = Gtk.HeaderBar()
         open_btn = Gtk.Button(icon_name="folder-open-symbolic", tooltip_text="Choose music folder")
@@ -998,24 +1000,30 @@ class MainWindow(Gtk.ApplicationWindow):
         if track is None:
             return
         self.player.play_file(track.path)
-        if self.player.error:
-            self.now_playing.set_label(f"Could not play {track.title}: {self.player.error}")
-            self.play_btn.set_icon_name(PLAY_ICON)
-            return
         self._announce(track)
+
+    def _on_playback_error(self, message: str) -> None:
+        """A track failed after play started (a damaged file, or no audio output). Reset the controls."""
+        self._pending_play = None  # a failed start is not a play
+        self._stop()
+        self.now_playing.set_label(f"Could not play the track: {message}")
 
     def _announce(self, track: Track) -> None:
         """Show a track as the one now playing and count it. Shared by normal and gapless starts."""
         self.now_playing.set_label(track.display_text)
         self._show_art(track.path)
         self.play_btn.set_icon_name(PAUSE_ICON)
-        self.stats.record_play(track.play_key)
-        self._refresh_row_summary(track.path)
-        self._rebuild_if_filtered()
+        self._pending_play = track  # counted once playback is confirmed (see _tick)
         if self.browse_by == "queue":
             self.populate_track_list()  # the upcoming list changed (also prepares the next file)
         else:
             self._prepare_next()
+
+    def _count_play(self, track: Track) -> None:
+        """Record a play for a track that has started sounding and refresh its display."""
+        self.stats.record_play(track.play_key)
+        self._refresh_row_summary(track.path)
+        self._rebuild_if_filtered()
 
     def _prepare_next(self) -> None:
         """Hand the player the next track so it can start with no gap. Repeat-one and the end of the list use the normal path."""
@@ -1023,11 +1031,28 @@ class MainWindow(Gtk.ApplicationWindow):
         nxt = upcoming[0] if upcoming and self.queue.repeat != REPEAT_ONE else None
         self.player.set_next_file(nxt.path if nxt else None)
 
+    def _on_track_finished(self) -> None:
+        """The current track played to its end. Count it if the timer has not yet, then move on."""
+        self._confirm_pending_play()
+        self._play_next()
+
     def _on_gapless_advance(self) -> None:
         """The player has already started the next track with no gap; catch the queue and the display up."""
+        self._confirm_pending_play()  # the previous track played to its end
         track = self.queue.next()
         if track is not None:
             self._announce(track)
+
+    def _confirm_pending_play(self) -> None:
+        """Count the pending track as a play, if there is one. Cleared first so a failed save is not retried."""
+        track = self._pending_play
+        if track is None:
+            return
+        self._pending_play = None  # record_play already counted it in memory; a retry would count it twice
+        try:
+            self._count_play(track)
+        except OSError:
+            log.exception("Could not save the play count for %s", track.path)
 
     def _show_art(self, path: str) -> None:
         data = read_cover(path)
@@ -1156,6 +1181,8 @@ class MainWindow(Gtk.ApplicationWindow):
         if self.player.has_media:
             pos = self.player.position_seconds()
             dur = self.player.duration_seconds()
+            if self.player.is_playing and pos > 0:
+                self._confirm_pending_play()
             if dur > 0:
                 self.progress.set_sensitive(True)
                 self.progress.set_value(min(pos / dur, 1.0))

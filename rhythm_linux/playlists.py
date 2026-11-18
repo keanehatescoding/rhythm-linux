@@ -16,9 +16,12 @@ class PlaylistStore:
             data = json.loads(self.path.read_text(encoding="utf-8"))
             if not isinstance(data, dict):
                 raise ValueError("top level must be an object")
-            self._playlists = {
-                str(name): [str(p) for p in paths] for name, paths in data.items()
-            }
+            playlists = {}
+            for name, paths in data.items():
+                if not isinstance(paths, list):
+                    raise ValueError("playlist entries must be lists")
+                playlists[str(name)] = [str(p) for p in paths]
+            self._playlists = playlists
         except FileNotFoundError:
             self._playlists = {}
         except (ValueError, TypeError):

@@ -63,3 +63,15 @@ def test_saving_after_recovery_writes_a_fresh_file(tmp_path):
     again.load()
     assert again.volume == 0.5
     assert (tmp_path / "settings.json.bak").read_text(encoding="utf-8") == "broken"
+
+
+def test_playlist_with_non_list_entries_is_backed_up_and_starts_empty(tmp_path):
+    path = tmp_path / "playlists.json"
+    path.write_text('{"Road": "/m/a.mp3"}', encoding="utf-8")
+
+    store = PlaylistStore(path)
+    store.load()
+
+    assert store.names() == []
+    assert (tmp_path / "playlists.json.bak").read_text(encoding="utf-8") == '{"Road": "/m/a.mp3"}'
+    assert not path.exists()

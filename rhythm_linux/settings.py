@@ -52,7 +52,8 @@ class Settings:
 
     @property
     def shuffle(self) -> bool:
-        return bool(self._data.get("shuffle", False))
+        value = self._data.get("shuffle", False)
+        return value if isinstance(value, bool) else False
 
     @shuffle.setter
     def shuffle(self, value: bool) -> None:

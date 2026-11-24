@@ -13,7 +13,7 @@ license = {text = "MIT"}
 dependencies = ["mutagen>=1.45"]
 
 [project.optional-dependencies]
-test = ["pytest>=7"]
+test = ["pytest>=7", "pytest-cov>=6"]
 
 [project.scripts]
 rhythm-linux = "rhythm_linux.__main__:main"
